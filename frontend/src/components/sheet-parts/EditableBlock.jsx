@@ -136,9 +136,27 @@ export default function EditableBlock({
 
   useEffect(() => {
     // Extract body if section, or raw content if intro
-    const rawText = block.type === 'section' ? (block.body || '') : block.content;
-    setLines(rawText.split('\n'));
-  }, [block]);
+    setLines((prevLines) => {
+      const currentJoined = prevLines.join('\n');
+      const rawText = block.type === 'section' ? (block.body || '') : block.content;
+
+      // 1. If the text is exactly the same, do nothing. 
+      // This prevents unnecessary re-renders when the object reference changes but data doesn't.
+      if (currentJoined === rawText) {
+        return prevLines;
+      }
+
+      // 2. Fix for the "Phantom Newline" bug:
+      // If the incoming text is identical to local state but has ONE extra newline at the end,
+      // it is likely an artifact of the parser/backend. Ignore it to keep the UI stable.
+      if (rawText === currentJoined + '\n') {
+        return prevLines;
+      }
+
+      // Otherwise, the content genuinely changed (e.g. initial load or external update), so sync it.
+      return rawText.split('\n');
+    });
+  }, [block.type, block.body, block.content]);
 
   // When lines change, we join them and call onSave (which sends to Sheet -> Backend)
   const saveChanges = (newLines) => {
@@ -211,19 +229,36 @@ export default function EditableBlock({
 
   // HEADER BLOCK RENDER
   if (block.type === 'section') {
-    const variants = { 1: 'h5', 2: 'h6', 3: 'subtitle1' };
-    const variant = variants[block.level] || 'body1';
+    const fontSizes = { 1: '30px', 2: '25px', 3: '20px' };
 
     return (
       <Box sx={{ mb: 1 }}>
         <Box 
-          onClick={(e) => { e.stopPropagation(); onToggle(); }}
           sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', mt: 1, mb: 0.5, p: 0.5, '&:hover': { bgcolor: 'rgba(0,0,0,0.02)', borderRadius: 1 } }}
         >
-          <IconButton size="small" sx={{ p: 0.5, mr: 0.5 }}>
+          <IconButton size="small" sx={{ p: 0.5, mr: 0.5 }} onClick={(e) => { e.stopPropagation(); onToggle(); }}>
             {isCollapsed ? <KeyboardArrowRightIcon fontSize="small"/> : <KeyboardArrowDownIcon fontSize="small"/>}
           </IconButton>
-          <Typography variant={variant} fontWeight="bold" sx={{ flexGrow: 1 }}>{block.title}</Typography>
+          <TextField
+            variant="standard"
+            fullWidth
+            value={block.title || ''}
+            onChange={(e) => {
+                // Ensure onUpdateTitle is passed from the parent component!
+                if (onUpdateTitle) onUpdateTitle(e.target.value); 
+            }}
+            placeholder="Heading"
+            InputProps={{ 
+              disableUnderline: true,
+              style: { 
+                fontSize: fontSizes[block.level],
+                fontWeight: 'bold',
+                cursor: 'text' 
+              }
+            }}
+            // Prevent click from bubbling up (safety measure)
+            onClick={(e) => e.stopPropagation()} 
+          />
         </Box>
         <Collapse in={!isCollapsed}>
           <Box sx={{ borderLeft: '2px solid rgba(0,0,0,0.05)', pb: 1 }}>

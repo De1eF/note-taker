@@ -40,6 +40,16 @@ export default function Sheet({ data, onUpdate, onDuplicate, onDelete, onDrag, s
 
   // B. HANDLE CONTENT SYNC (The logic that was missing)
   const handleBlockUpdate = (index, newBodyText) => {
+    if (blocks.length === 0) {
+        // If there are no blocks, we can't map over them.
+        // Just set the content directly to initialize the sheet.
+        // We default to a space " " if text is empty, to ensure the parser creates a block.
+        const content = newBodyText || " "; 
+        setLocalContent(content);
+        onUpdate(data._id, { content: content });
+        return;
+    }
+
     // 1. Create a copy of the current parsed blocks
     const currentBlocks = [...blocks];
     
@@ -162,7 +172,10 @@ export default function Sheet({ data, onUpdate, onDuplicate, onDelete, onDrag, s
                     variant="body2" color="text.secondary" 
                     sx={{ fontStyle: 'italic', cursor: 'pointer', opacity: 0.7 }}
                     // Allow clicking empty state to create initial content
-                    onClick={() => handleBlockUpdate(0, "Start typing...")}
+                    onClick={(e) => {
+                        e.stopPropagation(); // Prevent dragging
+                        handleBlockUpdate(0, " "); 
+                    }}
                 >
                    Click to start typing...
                 </Typography>
