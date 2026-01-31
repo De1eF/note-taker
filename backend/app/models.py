@@ -2,7 +2,6 @@ from pydantic import BaseModel, Field, BeforeValidator
 from typing import List, Optional
 from typing_extensions import Annotated
 
-# Helper to handle MongoDB ObjectId as string
 PyObjectId = Annotated[str, BeforeValidator(str)]
 
 class Position(BaseModel):
@@ -13,8 +12,11 @@ class SheetModel(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     title: str
     content: str
-    connections: List[str] = [] # List of Sheet IDs
+    connections: List[str] = [] 
     positionInSpace: Position
+    width: float = 320.0 
+    # NEW: Color field (default to 'default')
+    color: str = 'default' 
     is_deleted: bool = False
 
 class UpdateSheetModel(BaseModel):
@@ -22,5 +24,8 @@ class UpdateSheetModel(BaseModel):
     content: Optional[str] = None
     connections: Optional[List[str]] = None
     positionInSpace: Optional[Position] = None
+    width: Optional[float] = None
+    # NEW: Allow updating color
+    color: Optional[str] = None 
     is_deleted: Optional[bool] = None
     

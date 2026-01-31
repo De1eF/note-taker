@@ -4,13 +4,10 @@ import { ThemeProvider } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
-import Cookies from 'js-cookie'; // Import Cookies
+import Cookies from 'js-cookie';
 
-// Components
 import Sheet from './components/Sheet';
 import ConnectionLayer from './components/ConnectionLayer';
-
-// Logic Hook
 import { useService } from './services/use-service';
 
 function App() {
@@ -20,18 +17,11 @@ function App() {
     handleCreate, handleUpdate, handleDrag, handleDuplicate, handleDelete
   } = useService();
 
-  // --- Zoom & Pan State (with Cookie Persistence) ---
   const [view, setView] = useState(() => {
-    // Try to load saved view from cookies
     const savedView = Cookies.get('canvas_view');
     if (savedView) {
-      try {
-        return JSON.parse(savedView);
-      } catch (e) {
-        console.error("Failed to parse view cookie", e);
-      }
+      try { return JSON.parse(savedView); } catch (e) { console.error(e); }
     }
-    // Default fallback
     return { x: 0, y: 0, scale: 1 };
   });
 
@@ -39,22 +29,15 @@ function App() {
   const lastMousePos = useRef({ x: 0, y: 0 });
   const containerRef = useRef(null);
 
-  // --- Save View to Cookie ---
   useEffect(() => {
-    // Save current view state to cookie (expires in 7 days)
-    // We use a slight timeout or just direct set since cookies are fast enough for this freq
-    // Ideally, debounce this if it causes lag, but for now direct set is okay for pan/zoom end.
-    // Let's just save it.
     Cookies.set('canvas_view', JSON.stringify(view), { expires: 7 });
   }, [view]);
 
-  // --- Zoom Handler (Mouse Wheel) ---
   const handleWheel = (e) => {
     if (e.ctrlKey) e.preventDefault();
-
     const scaleAmount = -e.deltaY * 0.001;
     const newScale = Math.min(Math.max(view.scale * (1 + scaleAmount), 0.1), 5);
-
+    
     const rect = containerRef.current.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
@@ -66,32 +49,21 @@ function App() {
     setView({ x: newX, y: newY, scale: newScale });
   };
 
-  // --- Pan Handlers ---
   const handleMouseDown = (e) => {
-    // 1. Check if we clicked on a Sheet
-    if (e.target.closest('.sheet-wrapper')) return;
-
-    // 2. Check if we clicked a native UI element
-    if (e.target.closest('button') || e.target.closest('.MuiInputBase-root')) return;
-
-    // 3. Start Panning
+    if (e.target.closest('.sheet-wrapper') || e.target.closest('button') || e.target.closest('.MuiInputBase-root')) return;
     setIsPanning(true);
     lastMousePos.current = { x: e.clientX, y: e.clientY };
   };
 
   const handleMouseMove = (e) => {
     if (!isPanning) return;
-    
     const deltaX = e.clientX - lastMousePos.current.x;
     const deltaY = e.clientY - lastMousePos.current.y;
-
     setView(prev => ({ ...prev, x: prev.x + deltaX, y: prev.y + deltaY }));
     lastMousePos.current = { x: e.clientX, y: e.clientY };
   };
 
-  const handleMouseUp = () => {
-    setIsPanning(false);
-  };
+  const handleMouseUp = () => setIsPanning(false);
 
   return (
     <ThemeProvider theme={theme}>
@@ -104,7 +76,18 @@ function App() {
           overflow: 'hidden', 
           position: 'relative',
           color: 'text.primary',
-          cursor: isPanning ? 'grabbing' : 'grab'
+          cursor: isPanning ? 'grabbing' : 'grab',
+          
+          // --- INFINITE GRID BACKGROUND ---
+          // We apply the background to the static container, but move it using backgroundPosition
+          backgroundImage: mode === 'light' 
+            ? 'radial-gradient(#ccc 1px, transparent 1px)' 
+            : 'radial-gradient(#444 1px, transparent 1px)',
+          // Scale the dots with the zoom level
+          backgroundSize: `${20 * view.scale}px ${20 * view.scale}px`,
+          // Move the grid with the pan x/y
+          backgroundPosition: `${view.x}px ${view.y}px`,
+          transition: isPanning ? 'none' : 'background-size 0.2s', 
         }}
         onWheel={handleWheel}
         onMouseDown={handleMouseDown}
@@ -113,17 +96,14 @@ function App() {
         onMouseLeave={handleMouseUp}
         ref={containerRef}
       >
-        {/* Create Button */}
         <Fab 
-          color="primary" 
-          aria-label="add"
+          color="primary" aria-label="add"
           sx={{ position: 'fixed', top: 20, left: 20, zIndex: 1000 }}
           onClick={handleCreate}
         >
           <AddIcon />
         </Fab>
 
-        {/* Theme Toggle */}
         <Box sx={{ position: 'fixed', top: 20, right: 20, zIndex: 1000 }}>
           <Box sx={{ bgcolor: 'background.paper', borderRadius: '50%', boxShadow: 3 }}>
             <IconButton onClick={toggleColorMode} color="inherit">
@@ -132,7 +112,7 @@ function App() {
           </Box>
         </Box>
 
-        {/* Infinite Canvas Layer */}
+        {/* --- Content Layer --- */}
         <Box 
           sx={{ 
             width: '100%', 
@@ -140,11 +120,6 @@ function App() {
             transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
             transformOrigin: '0 0',
             position: 'absolute',
-            backgroundImage: mode === 'light' 
-              ? 'radial-gradient(#ccc 1px, transparent 1px)' 
-              : 'radial-gradient(#444 1px, transparent 1px)',
-            backgroundSize: '20px 20px',
-            transition: isPanning ? 'none' : 'background-image 0.3s ease'
           }}
         >
           <ConnectionLayer sheets={sheets} />
@@ -162,7 +137,6 @@ function App() {
           ))}
         </Box>
 
-        {/* Undo Notification */}
         <Snackbar
           open={snackbarOpen}
           autoHideDuration={6000}
@@ -170,14 +144,8 @@ function App() {
           anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         >
           <Alert 
-            onClose={handleSnackbarClose} 
-            severity="info" 
-            sx={{ width: '100%' }}
-            action={
-              <Button color="inherit" size="small" onClick={handleUndoDelete}>
-                UNDO
-              </Button>
-            }
+            onClose={handleSnackbarClose} severity="info" sx={{ width: '100%' }}
+            action={<Button color="inherit" size="small" onClick={handleUndoDelete}>UNDO</Button>}
           >
             Sheet deleted
           </Alert>

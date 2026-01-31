@@ -1,7 +1,6 @@
 import React from 'react';
 
 export default function ConnectionLayer({ sheets }) {
-  // Helper to find sheet by ID
   const getSheet = (id) => sheets.find(s => s._id === id);
 
   return (
@@ -9,9 +8,12 @@ export default function ConnectionLayer({ sheets }) {
       position: 'absolute', 
       top: 0, 
       left: 0, 
+      // width/height can be small as long as overflow is visible
       width: '100%', 
       height: '100%', 
-      pointerEvents: 'none', // Let clicks pass through to cards
+      // CRITICAL FIX: Allow lines to draw outside the bounding box
+      overflow: 'visible', 
+      pointerEvents: 'none', 
       zIndex: 0 
     }}>
       <defs>
@@ -27,42 +29,25 @@ export default function ConnectionLayer({ sheets }) {
           const target = getSheet(targetId);
           if (!target) return null;
 
-          // Coordinates
-          // Note: We add offsets to align with the "Dot" position
-          // Assuming card width 300, dot is at (x + 300), center y (y + height/2)
-          // For simplicity in this demo, we estimate height ~150px. 
-          // Real implementations calculate DOM element positions.
-          
-          const startX = source.positionInSpace.x + 300; 
-          const startY = source.positionInSpace.y + 75; // Approx half height
-          const endX = target.positionInSpace.x + 300;
-          const endY = target.positionInSpace.y + 75;
+          const sourceWidth = source.width || 320;
+          const targetWidth = target.width || 320;
+          const VERTICAL_OFFSET = 73.5;
 
-          // Control point for a nice curve (Bezier)
-          const midX = (startX + endX) / 2;
+          const startX = source.positionInSpace.x + sourceWidth; 
+          const startY = source.positionInSpace.y + VERTICAL_OFFSET; 
+          
+          const endDotX = target.positionInSpace.x + targetWidth;
+          const endY = target.positionInSpace.y + VERTICAL_OFFSET;
+
+          const midX = (startX + endDotX) / 2;
 
           return (
             <g key={`${source._id}-${targetId}`}>
-              {/* The Line */}
               <path 
-                d={`M ${startX} ${startY} C ${midX} ${startY}, ${midX} ${endY}, ${endX} ${endY}`}
-                stroke="#1976d2" 
-                strokeWidth="2" 
-                fill="none"
-                opacity="0.4"
+                d={`M ${startX} ${startY} C ${midX} ${startY}, ${midX} ${endY}, ${endDotX} ${endY}`}
+                stroke="#1976d2" strokeWidth="2" fill="none" opacity="0.4"
                 markerEnd="url(#arrowhead)"
               />
-              
-              {/* The Label near the start */}
-              <text 
-                x={startX + 10} 
-                y={startY - 5} 
-                fill="#1976d2" 
-                fontSize="10" 
-                fontWeight="bold"
-              >
-                To: {target.title}
-              </text>
             </g>
           );
         });
