@@ -39,9 +39,11 @@ const TagComponent = ({ href, children, sheetColor }) => {
 // --- SINGLE LINE COMPONENT ---
 const LineItem = ({ 
   content, index, isEditing, setEditingIndex, onUpdateLine, onAddLine, onRemoveLine, onNavigate, 
-  sheetColor, isList, indentation, extraTextOffset 
+  sheetColor, isList, indentation, extraTextOffset, inputRefs
 }) => {
   const inputRef = useRef(null);
+  const ignoreBlurRef = useRef(false);
+  
 
   useEffect(() => {
     if (isEditing && inputRef.current) inputRef.current.focus();
@@ -50,11 +52,18 @@ const LineItem = ({
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      // Preserve list prefix when hitting enter
+
+      ignoreBlurRef.current = true;
+
       const match = content.match(/^((?:- )+| +)/); 
       const prefix = match ? match[1] : ""; 
+
       onAddLine(index, prefix);
-    } 
+
+      requestAnimationFrame(() => {
+        ignoreBlurRef.current = false;
+      });
+    }
     else if (e.key === 'Backspace' && content === '') {
       e.preventDefault();
       onRemoveLine(index);
@@ -72,9 +81,14 @@ const LineItem = ({
   if (isEditing) {
     return (
       <TextField
-        inputRef={inputRef} fullWidth variant="standard" value={content}
+        inputRef={el => {
+  if (el) inputRefs.current[index] = el;
+}} fullWidth variant="standard" value={content}
         onChange={(e) => onUpdateLine(index, e.target.value)} onKeyDown={handleKeyDown}
-        onBlur={() => setEditingIndex(null)}
+        onBlur={() => {
+          if (ignoreBlurRef.current) return;
+          setEditingIndex(null);
+        }}
         InputProps={{ disableUnderline: true }}
         sx={{
           p: 0, m: 0,
@@ -134,6 +148,7 @@ export default function EditableBlock({
 }) {
   const [lines, setLines] = useState([]);
   const [editingIndex, setEditingIndex] = useState(null);
+  const inputRefs = useRef({});
 
   useEffect(() => {
     // Extract body if section, or raw content if intro
@@ -174,7 +189,13 @@ export default function EditableBlock({
     const newLines = [...lines];
     newLines.splice(index + 1, 0, prefix);
     saveChanges(newLines);
-    setEditingIndex(index + 1);
+
+    const newIndex = index + 1;
+    setEditingIndex(newIndex);
+
+    requestAnimationFrame(() => {
+      inputRefs.current[newIndex]?.focus();
+    });
   };
   const handleRemoveLine = (index) => {
     if (lines.length <= 1) { handleUpdateLine(0, ""); return; }
@@ -216,6 +237,7 @@ export default function EditableBlock({
                     onAddLine={handleAddLine} onRemoveLine={handleRemoveLine} onNavigate={handleNavigate}
                     sheetColor={sheetColor} isList={isList} indentation={indentation < 0 ? 0 : indentation}
                     extraTextOffset={extraTextOffset}
+                    inputRefs={inputRefs}
                 />
             );
         })}
