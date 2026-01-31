@@ -93,6 +93,12 @@ export default function Sheet({
     document.addEventListener('mouseup', up);
   };
 
+    const toggleBlockCollapse = (index) => {
+    const newSet = new Set(collapsedBlocks);
+    if (newSet.has(index)) { newSet.delete(index); } else { newSet.add(index); }
+    setCollapsedBlocks(newSet);
+  };
+
   return (
     <Draggable
       nodeRef={nodeRef}
@@ -208,15 +214,45 @@ export default function Sheet({
           />
 
           {!collapsed && (
-            <CardContent sx={{ p: 1.5 }}>
-              {blocks.map((block, i) => (
-                <EditableBlock
-                  key={i}
-                  block={block}
-                  sheetColor={data.color}
-                  onSave={(txt) => handleBlockUpdate(i, txt)}
-                />
-              ))}
+            <CardContent sx={{ p: 1.5, pb: '12px !important', minHeight: 150 }}>
+              {blocks.length === 0 && (
+                <Typography 
+                    variant="body2" color="text.secondary" 
+                    sx={{ fontStyle: 'italic', cursor: 'pointer', opacity: 0.7 }}
+                    // Allow clicking empty state to create initial content
+                    onClick={(e) => {
+                        e.stopPropagation(); // Prevent dragging
+                        handleBlockUpdate(0, " "); 
+                    }}
+                >
+                   Click to start typing...
+                </Typography>
+              )}
+              {(() => {
+                let currentCollapseLevel = null;
+                return blocks.map((block, i) => {
+                  const isHeader = block.type === 'section';
+                  const level = block.level;
+                  const isThisCollapsed = collapsedBlocks.has(i);
+                  
+                  // Logic to hide nested blocks if parent is collapsed locally
+                  if (currentCollapseLevel !== null) {
+                      if (isHeader && level <= currentCollapseLevel) { currentCollapseLevel = null; } else { return null; }
+                  }
+                  if (isThisCollapsed && isHeader && currentCollapseLevel === null) { currentCollapseLevel = level; }
+                  
+                  return (
+                    <EditableBlock 
+                      key={i} 
+                      block={block} 
+                      sheetColor={data.color} 
+                      isCollapsed={isThisCollapsed} 
+                      onToggle={() => toggleBlockCollapse(i)}
+                      onSave={(txt) => handleBlockUpdate(i, txt)} // <-- Now calls the working handler
+                    />
+                  );
+                });
+              })()}
             </CardContent>
           )}
         </Card>
