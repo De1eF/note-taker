@@ -198,6 +198,39 @@ export const useService = () => {
   };
   
   const handleDuplicate = async (id) => {
+    const original = sheets.find(s => s._id === id);
+    if (!original || !currentSpace) return;
+
+    try {
+      // 1. Prepare the new sheet data (clone of original)
+      const duplicateData = {
+        title: `${original.title} (Copy)`,
+        content: original.content,
+        color: original.color,
+        width: original.width,
+        // Offset the position slightly so the user sees the new sheet
+        positionInSpace: { 
+          x: original.positionInSpace.x + 40, 
+          y: original.positionInSpace.y + 40 
+        }
+      };
+
+      // 2. Save the new sheet to the backend
+      const res = await axios.post(`${API_URL}/sheets`, duplicateData);
+      const newSheet = res.data;
+
+      // 3. Update the Current Space to include the new sheet ID
+      const newIds = [...(currentSpace.sheet_ids || []), newSheet._id];
+      await axios.put(`${API_URL}/spaces/${currentSpace._id}`, { sheet_ids: newIds });
+      
+      // 4. Update local state
+      setSheets(prev => [...prev, newSheet]);
+      setCurrentSpace(prev => ({ ...prev, sheet_ids: newIds }));
+
+    } catch (e) {
+      console.error("Duplication failed:", e);
+      alert("Could not duplicate sheet.");
+    }
   };
 
   const debouncedSaveView = useCallback(debounce(async (sid, vs) => {
