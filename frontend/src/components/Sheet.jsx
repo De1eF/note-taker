@@ -69,29 +69,30 @@ export default function Sheet({
     onUpdate(data._id, { content: fullMarkdown });
   };
 
-  const handleResizeStart = (e) => {
+  const handleResizeStartOptimized = (e) => {
     e.preventDefault(); e.stopPropagation();
-
     const startX = e.clientX;
     const startWidth = widthRef.current;
     setIsResizing(true);
-
-    const move = (ev) => {
-      setWidth(Math.max(200, startWidth + (ev.clientX - startX) / scale));
+    const handleMouseMove = (moveEvent) => {
+        const deltaX = moveEvent.clientX - startX;
+        const newWidth = Math.max(200, startWidth + (deltaX / scale));
+        setWidth(newWidth);
     };
-
-    const up = (ev) => {
-      document.removeEventListener('mousemove', move);
-      document.removeEventListener('mouseup', up);
-      setIsResizing(false);
-
-      const finalWidth = Math.max(200, startWidth + (ev.clientX - startX) / scale);
-      onUpdate(data._id, { width: finalWidth });
+    const handleMouseUp = (upEvent) => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        setIsResizing(false);
+        const deltaX = upEvent.clientX - startX;
+        const finalWidth = Math.max(200, startWidth + (deltaX / scale));
+        onUpdate(data._id, { width: finalWidth });
     };
-
-    document.addEventListener('mousemove', move);
-    document.addEventListener('mouseup', up);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
   };
+
+    const resizeHandleStyle = { position: 'absolute', right: 0, top: 0, bottom: 0, width: '10px', cursor: 'ew-resize', zIndex: 20, opacity: 0, '&:hover': { opacity: 1 } };
+
 
     const toggleBlockCollapse = (index) => {
     const newSet = new Set(collapsedBlocks);
@@ -114,7 +115,7 @@ export default function Sheet({
   onMouseEnter={onMouseEnter}
   onMouseLeave={onMouseLeave}
 >
-
+<div onMouseDown={handleResizeStartOptimized} style={resizeHandleStyle} title="Drag to resize" />
 
         {/* TAG DOTS */}
 {tags.map((tag, index) => {
