@@ -35,7 +35,7 @@ const TagComponent = ({ href, children, sheetColor }) => {
   return <a href={href} style={{ color: '#1976d2' }}>{children}</a>;
 };
 
-// --- SINGLE LINE COMPONENT (No changes from previous step) ---
+// --- SINGLE LINE COMPONENT ---
 const LineItem = ({ 
   content, index, isEditing, setEditingIndex, onUpdateLine, onAddLine, onRemoveLine, onNavigate, 
   sheetColor, isList, indentation, extraTextOffset 
@@ -49,6 +49,7 @@ const LineItem = ({
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      // Preserve list prefix when hitting enter
       const match = content.match(/^((?:- )+| +)/); 
       const prefix = match ? match[1] : ""; 
       onAddLine(index, prefix);
@@ -83,6 +84,7 @@ const LineItem = ({
     );
   }
 
+  // Strip dash for display, as we render a dot manually
   const cleanContent = isList ? content.replace(/^((?:- )+)/, '') : content;
   const displayContent = cleanContent.trim() === '' ? '&nbsp;' : cleanContent;
 
@@ -102,10 +104,16 @@ const LineItem = ({
       )}
       <Box sx={{ flexGrow: 1, whiteSpace: 'pre-wrap' }}>
         <ReactMarkdown 
-            allowedElements={['p', 'strong', 'em', 'a', 'code', 'text']} unwrapDisallowed={true}
+            // Allow more elements to prevent stripping styling
+            allowedElements={['p', 'strong', 'em', 'a', 'code', 'text', 'h1', 'h2', 'h3', 'blockquote', 'li', 'ul', 'ol']} 
+            unwrapDisallowed={true}
             components={{ 
                 a: (props) => <TagComponent {...props} sheetColor={sheetColor} />,
-                p: ({children}) => <span style={{ margin: 0 }}>{children}</span>
+                p: ({children}) => <span style={{ margin: 0 }}>{children}</span>,
+                // Make headers inside body look distinct but small
+                h1: ({children}) => <strong style={{fontSize: '1.2em'}}>{children}</strong>,
+                h2: ({children}) => <strong style={{fontSize: '1.1em'}}>{children}</strong>,
+                h3: ({children}) => <strong>{children}</strong>
             }}
         >
             {prepareMarkdown(displayContent)}
@@ -120,18 +128,19 @@ export default function EditableBlock({
   block, 
   onSave, 
   sheetColor,
-  // NEW PROPS for External Control
-  isCollapsed = false, // Default false (Open)
-  onToggle // Function to toggle
+  isCollapsed = false, 
+  onToggle 
 }) {
   const [lines, setLines] = useState([]);
   const [editingIndex, setEditingIndex] = useState(null);
 
   useEffect(() => {
+    // Extract body if section, or raw content if intro
     const rawText = block.type === 'section' ? (block.body || '') : block.content;
     setLines(rawText.split('\n'));
   }, [block]);
 
+  // When lines change, we join them and call onSave (which sends to Sheet -> Backend)
   const saveChanges = (newLines) => {
     setLines(newLines);
     onSave(newLines.join('\n'));
@@ -192,7 +201,7 @@ export default function EditableBlock({
             );
         })}
         {lines.length === 0 && (
-            <Box onClick={() => { setLines([""]); setEditingIndex(0); }} sx={{ fontStyle: 'italic', cursor: 'pointer' }}>
+            <Box onClick={() => { setLines([""]); setEditingIndex(0); }} sx={{ fontStyle: 'italic', cursor: 'pointer', opacity: 0.6 }}>
                 Click to add content...
             </Box>
         )}
@@ -200,7 +209,7 @@ export default function EditableBlock({
     );
   };
 
-  // HEADER BLOCK
+  // HEADER BLOCK RENDER
   if (block.type === 'section') {
     const variants = { 1: 'h5', 2: 'h6', 3: 'subtitle1' };
     const variant = variants[block.level] || 'body1';
@@ -208,17 +217,14 @@ export default function EditableBlock({
     return (
       <Box sx={{ mb: 1 }}>
         <Box 
-          // CHANGED: Use passed onToggle prop
           onClick={(e) => { e.stopPropagation(); onToggle(); }}
           sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', mt: 1, mb: 0.5, p: 0.5, '&:hover': { bgcolor: 'rgba(0,0,0,0.02)', borderRadius: 1 } }}
         >
           <IconButton size="small" sx={{ p: 0.5, mr: 0.5 }}>
-            {/* CHANGED: Check reversed logic for icon */}
             {isCollapsed ? <KeyboardArrowRightIcon fontSize="small"/> : <KeyboardArrowDownIcon fontSize="small"/>}
           </IconButton>
           <Typography variant={variant} fontWeight="bold" sx={{ flexGrow: 1 }}>{block.title}</Typography>
         </Box>
-        {/* CHANGED: Use passed isCollapsed prop */}
         <Collapse in={!isCollapsed}>
           <Box sx={{ borderLeft: '2px solid rgba(0,0,0,0.05)', pb: 1 }}>
             {renderLines()}
@@ -228,6 +234,6 @@ export default function EditableBlock({
     );
   }
 
-  // INTRO BLOCK (Always visible)
+  // INTRO BLOCK RENDER
   return <Box sx={{ mb: 1, p: 1 }}>{renderLines()}</Box>;
 }

@@ -1,41 +1,73 @@
-// Helper: Preserves visual spacing (mostly handled by CSS pre-wrap now, but kept for safety)
-export const preserveNewlines = (text) => text;
+// frontend/src/components/sheet-parts/sheet-utils.js
 
-// Extract unique tags for the connection dots
-export const extractTags = (content) => {
-  if (!content) return [];
-  const matches = content.match(/~(\w[\w-]*)/g);
-  if (!matches) return [];
-  return [...new Set(matches)].sort();
+// 1. EXTRACT TAGS (The Fix: Now looking for ~ instead of #)
+export const extractTags = (text) => {
+  if (!text) return [];
+  // Regex matches: ~tag, ~tag:value, ~tag.name
+  // It stops at spaces or punctuation that isn't : . or -
+  return text.match(/~[\w:.-]+/g) || [];
 };
 
-// Convert ~tag to a special link format #tag:tagname
-export const formatTags = (text) => {
-  if (!text) return "";
-  return text.replace(/([~\s]|^)~(\w[\w-]*)/g, '$1[$2](#tag:$2)');
-};
-
-// Only format tags, ignoring list logic
-export const prepareMarkdown = (text) => {
-  return formatTags(text);
-};
-
-// Parse blocks (Headers vs Content)
+// 2. PARSE MARKDOWN BLOCKS (Used by Sheet.jsx to split content)
 export const parseMarkdownBlocks = (text) => {
   if (!text) return [];
-  const rawBlocks = text.split(/(?=^#{1,3}\s)/gm);
-  return rawBlocks.map((chunk, index) => {
-    const match = chunk.match(/^(#{1,3})\s+(.*)\n?([\s\S]*)$/);
-    if (match) {
-      return {
-        id: index, 
-        type: 'section', 
-        level: match[1].length,
-        title: match[2], 
-        body: match[3] || '', 
-        content: chunk
+  
+  // Split by headers (lines starting with #)
+  // We use a regex that looks for standard Markdown headers
+  const lines = text.split('\n');
+  const blocks = [];
+  let currentBlock = { type: 'intro', content: '' };
+
+  lines.forEach((line) => {
+    const headerMatch = line.match(/^(#{1,6})\s+(.*)/);
+    
+    if (headerMatch) {
+      // If we have accumulated content in the previous block, push it
+      if (currentBlock.content.trim()) {
+        if (currentBlock.type === 'section') {
+           // separate body from title
+           currentBlock.body = currentBlock.content.trim();
+        }
+        blocks.push(currentBlock);
+      }
+      
+      // Start a new Section block
+      currentBlock = {
+        type: 'section',
+        level: headerMatch[1].length,
+        title: headerMatch[2],
+        content: '', // Will accumulate body lines here
+        body: ''
       };
+    } else {
+      // Append line to current block
+      currentBlock.content += line + '\n';
     }
-    return { id: index, type: 'intro', content: chunk };
   });
+
+  // Push the final block
+  if (currentBlock.content.trim() || currentBlock.type === 'intro') {
+      if (currentBlock.type === 'section') {
+          currentBlock.body = currentBlock.content.trim();
+      }
+      blocks.push(currentBlock);
+  }
+
+  // Filter out empty intro blocks if they are not the only block
+  if (blocks.length > 1 && blocks[0].type === 'intro' && !blocks[0].content.trim()) {
+      blocks.shift();
+  }
+
+  return blocks;
+};
+
+// 3. PREPARE MARKDOWN (Used by EditableBlock to highlight tags)
+export const prepareMarkdown = (text) => {
+  if (!text) return "";
+  // Wraps ~tags in link syntax so ReactMarkdown renders them as <a> tags
+  // We interpret these <a> tags specially in EditableBlock
+  return text.replace(
+      /(~[\w:.-]+)/g, 
+      "[$1](#tag:$1)" 
+  );
 };

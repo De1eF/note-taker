@@ -1,17 +1,37 @@
-from fastapi import FastAPI, HTTPException, Body
+import os
+from typing import List
+from fastapi import FastAPI, HTTPException, Body, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
-from typing import List
-import re
-from .models import SheetModel, UpdateSheetModel
+from dotenv import load_dotenv
 
+# Import Models
+from app.models import (
+    SheetModel, UpdateSheetModel, 
+    SpaceModel, UpdateSpaceModel
+)
+
+# Import Auth Logic
+from app.auth import (
+    verify_google_token, 
+    create_session_token, 
+    get_current_user
+)
+
+# 1. Load Environment Variables
+load_dotenv()
+
+MONGO_URL = os.getenv("MONGO_URL")
+DB_NAME = os.getenv("DB_NAME", "ticket_mapper_db")
+
+# 2. Setup FastAPI
 app = FastAPI()
 
-# --- CORS Config ---
+# 3. Setup CORS
 origins = [
-    "http://localhost:5173",
     "http://localhost:3000",
+    "http://localhost:5173",
 ]
 
 app.add_middleware(
@@ -22,153 +42,135 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Database ---
-client = AsyncIOMotorClient("mongodb://mongo:27017")
-db = client.note_taker
-sheet_collection = db.sheets
+# 4. Database Connection
+client = AsyncIOMotorClient(MONGO_URL)
+db = client[DB_NAME]
 
-# --- Helpers ---
-async def parse_and_update_connections(sheet_id: str, content: str):
-    """
-    Parses tags ~tagname, finds matching sheets, and syncs connections bi-directionally.
-    Crucially, it removes stale connections from sheets that no longer match.
-    """
-    # 1. Parse tags from content
-    tags = set(re.findall(r"~(\w[\w-]*)", content))
-    
-    related_ids = []
-    
-    # 2. Find sheets containing those tags (if any tags exist)
-    if tags:
-        regex_queries = [{"content": {"$regex": f"~{tag}\\b"}} for tag in tags]
-        
-        related_cursor = sheet_collection.find({
-            "$or": regex_queries,
-            "_id": {"$ne": ObjectId(sheet_id)},
-            "is_deleted": False
-        })
-        
-        async for doc in related_cursor:
-            related_ids.append(str(doc["_id"]))
-    
-    # 3. Update THIS sheet's connections
-    await sheet_collection.update_one(
-        {"_id": ObjectId(sheet_id)},
-        {"$set": {"connections": related_ids}}
-    )
-    
-    # 4. Bi-directional Sync Logic
-    
-    # A. ADD connections: Ensure the found sheets point back to this one
-    if related_ids:
-        await sheet_collection.update_many(
-            {"_id": {"$in": [ObjectId(rid) for rid in related_ids]}},
-            {"$addToSet": {"connections": sheet_id}}
-        )
+# ============================================================================
+#                                 AUTH ROUTES
+# ============================================================================
 
-    # B. REMOVE connections (Cleanup): 
-    # Find any sheet that currently connects to THIS sheet...
-    # ...but is NOT in our new list of matches.
-    # Remove THIS sheet_id from their connections list.
-    cleanup_filter = {
-        "connections": sheet_id,
-        "_id": {"$nin": [ObjectId(rid) for rid in related_ids]}
+@app.post("/auth/login")
+async def login(data: dict = Body(...)):
+    """
+    Exchanges a Google ID Token for an internal Session Token.
+    """
+    google_token = data.get("token")
+    if not google_token:
+        raise HTTPException(status_code=400, detail="Missing Google Token")
+
+    # 1. Verify with Google
+    google_sub = verify_google_token(google_token)
+    
+    # 2. Mint internal Session Token
+    session_token = create_session_token(google_sub)
+    
+    return {
+        "access_token": session_token, 
+        "token_type": "bearer",
+        "user_id": google_sub
     }
+
+# ============================================================================
+#                                SPACE ROUTES
+# ============================================================================
+
+@app.get("/spaces", response_model=List[SpaceModel])
+async def get_spaces(user_id: str = Depends(get_current_user)):
+    """Get all spaces owned by the current user."""
+    return await db["spaces"].find({
+        "owner_id": user_id, 
+        "is_deleted": False
+    }).to_list(100)
+
+@app.post("/spaces", response_model=SpaceModel)
+async def create_space(space: SpaceModel, user_id: str = Depends(get_current_user)):
+    """Create a new space for the current user."""
+    space_dict = space.model_dump(by_alias=True, exclude=["id"])
+    space_dict["owner_id"] = user_id  # Stamp ownership
     
-    await sheet_collection.update_many(
-        cleanup_filter,
-        {"$pull": {"connections": sheet_id}}
-    )
+    new_space = await db["spaces"].insert_one(space_dict)
+    return await db["spaces"].find_one({"_id": new_space.inserted_id})
 
-    return related_ids
+@app.put("/spaces/{id}", response_model=SpaceModel)
+async def update_space(id: str, update: UpdateSpaceModel, user_id: str = Depends(get_current_user)):
+    """Update a space (only if owned by user)."""
+    # 1. Filter update data
+    update_data = {k: v for k, v in update.model_dump(exclude_unset=True).items()}
+    
+    if len(update_data) >= 1:
+        # 2. Perform update with owner check
+        result = await db["spaces"].update_one(
+            {"_id": ObjectId(id), "owner_id": user_id}, 
+            {"$set": update_data}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Space not found or access denied")
 
-# --- Routes ---
+    return await db["spaces"].find_one({"_id": ObjectId(id)})
 
-@app.get("/sheets/", response_model=List[SheetModel])
-async def get_sheets():
-    sheets = []
-    cursor = sheet_collection.find({"is_deleted": False})
-    async for document in cursor:
-        sheets.append(document)
+@app.get("/spaces/{space_id}/sheets", response_model=List[SheetModel])
+async def get_sheets_in_space(space_id: str, user_id: str = Depends(get_current_user)):
+    """Get all sheets referenced by a space (only if space matches owner)."""
+    
+    # 1. Verify Space Ownership
+    space = await db["spaces"].find_one({
+        "_id": ObjectId(space_id), 
+        "owner_id": user_id
+    })
+    
+    if not space:
+        raise HTTPException(status_code=404, detail="Space not found or access denied")
+        
+    target_ids = space.get("sheet_ids", [])
+    if not target_ids:
+        return []
+    
+    # 2. Fetch Sheets (Double check ownership for security)
+    obj_ids = [ObjectId(sid) for sid in target_ids]
+    
+    sheets = await db["sheets"].find({
+        "_id": {"$in": obj_ids},
+        "owner_id": user_id,  # Extra security layer
+        "is_deleted": False
+    }).to_list(1000)
+    
     return sheets
 
-@app.post("/sheets/", response_model=SheetModel)
-async def create_sheet(sheet: SheetModel):
-    new_sheet = sheet.dict(by_alias=True)
-    if "_id" in new_sheet:
-        del new_sheet["_id"]
+# ============================================================================
+#                                SHEET ROUTES
+# ============================================================================
+
+@app.post("/sheets", response_model=SheetModel)
+async def create_sheet(sheet: SheetModel, user_id: str = Depends(get_current_user)):
+    """Create a new sheet for the current user."""
+    sheet_dict = sheet.model_dump(by_alias=True, exclude=["id"])
+    sheet_dict["owner_id"] = user_id # Stamp ownership
     
-    result = await sheet_collection.insert_one(new_sheet)
-    created_sheet = await sheet_collection.find_one({"_id": result.inserted_id})
+    new_sheet = await db["sheets"].insert_one(sheet_dict)
+    return await db["sheets"].find_one({"_id": new_sheet.inserted_id})
+
+@app.put("/sheets/{id}", response_model=SheetModel)
+async def update_sheet(id: str, update: UpdateSheetModel, user_id: str = Depends(get_current_user)):
+    """Update a sheet (only if owned by user)."""
+    update_data = {k: v for k, v in update.model_dump(exclude_unset=True).items()}
     
-    # Run connection logic for the new sheet
-    if "content" in new_sheet:
-        await parse_and_update_connections(str(result.inserted_id), new_sheet["content"])
-        # Fetch again to get updated connections
-        created_sheet = await sheet_collection.find_one({"_id": result.inserted_id})
+    if len(update_data) >= 1:
+        result = await db["sheets"].update_one(
+            {"_id": ObjectId(id), "owner_id": user_id}, 
+            {"$set": update_data}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Sheet not found or access denied")
+
+    return await db["sheets"].find_one({"_id": ObjectId(id)})
+
+@app.delete("/sheets/{id}")
+async def delete_sheet(id: str, user_id: str = Depends(get_current_user)):
+    """Hard delete a sheet (only if owned by user)."""
+    result = await db["sheets"].delete_one({"_id": ObjectId(id), "owner_id": user_id})
+    
+    if result.deleted_count == 1:
+        return {"message": "Sheet deleted successfully"}
         
-    return created_sheet
-
-@app.patch("/sheets/{sheet_id}", response_model=SheetModel)
-async def update_sheet(sheet_id: str, update_data: UpdateSheetModel):
-    # Filter out None values
-    data = {k: v for k, v in update_data.dict().items() if v is not None}
-    
-    if not data:
-        raise HTTPException(status_code=400, detail="No data provided")
-
-    # Perform the update
-    result = await sheet_collection.update_one(
-        {"_id": ObjectId(sheet_id)},
-        {"$set": data}
-    )
-    
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Sheet not found")
-    
-    # If content changed, re-evaluate connections
-    if "content" in data:
-        await parse_and_update_connections(sheet_id, data["content"])
-
-    updated_sheet = await sheet_collection.find_one({"_id": ObjectId(sheet_id)})
-    return updated_sheet
-
-@app.post("/sheets/{sheet_id}/duplicate", response_model=SheetModel)
-async def duplicate_sheet(sheet_id: str):
-    original = await sheet_collection.find_one({"_id": ObjectId(sheet_id)})
-    if not original:
-        raise HTTPException(status_code=404, detail="Sheet not found")
-        
-    new_sheet = original.copy()
-    del new_sheet["_id"]
-    new_sheet["title"] = f"{original['title']} (Copy)"
-    # Offset position slightly
-    new_sheet["positionInSpace"]["x"] += 20
-    new_sheet["positionInSpace"]["y"] += 20
-    
-    result = await sheet_collection.insert_one(new_sheet)
-    
-    # Recalculate connections for the clone
-    await parse_and_update_connections(str(result.inserted_id), new_sheet["content"])
-    
-    created = await sheet_collection.find_one({"_id": result.inserted_id})
-    return created
-
-@app.delete("/sheets/{sheet_id}")
-async def delete_sheet(sheet_id: str):
-    # Soft delete
-    result = await sheet_collection.update_one(
-        {"_id": ObjectId(sheet_id)},
-        {"$set": {"is_deleted": True}}
-    )
-    
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Sheet not found")
-    
-    # Remove this ID from everyone else's connections
-    await sheet_collection.update_many(
-        {"connections": sheet_id},
-        {"$pull": {"connections": sheet_id}}
-    )
-        
-    return {"success": True}
+    raise HTTPException(status_code=404, detail="Sheet not found or access denied")

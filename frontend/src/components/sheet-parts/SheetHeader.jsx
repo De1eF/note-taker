@@ -41,10 +41,6 @@ export default function SheetHeader({
 
   const headerBg = isDefault ? 'primary.main' : color;
   
-  // LOGIC: 
-  // 1. If Custom Color -> Always Black (readable on pastels).
-  // 2. If Default + Dark Mode -> Black (readable on light-blue primary).
-  // 3. If Default + Light Mode -> White (readable on dark-blue primary).
   const headerText = (isDefault && !isDarkMode) ? 'white' : '#000000';
 
   return (

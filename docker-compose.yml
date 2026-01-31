@@ -1,41 +1,23 @@
 services:
-  # Database
-  mongo:
-    image: mongo:6.0
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
-
-  # Backend (FastAPI)
   backend:
     build: ./backend
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-    volumes:
-      - ./backend:/code
     ports:
       - "8000:8000"
-    environment:
-      - MONGO_URL=mongodb://mongo:27017
-      - DB_NAME=structural_notes
-    depends_on:
-      - mongo
+    volumes:
+      - ./backend:/code
+    # Pass environment variables to the container
+    env_file:
+      - ./backend/.env
+    # OR define them directly here if you prefer (but .env is safer)
+    # environment:
+    #   - MONGO_URL=mongodb+srv://...
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-  # Frontend (React)
   frontend:
-      build: ./frontend
-      # CHANGE THIS LINE: "start" -> "run dev"
-      command: npm run dev
-      volumes:
-        - ./frontend:/app
-        - /app/node_modules
-      # CHANGE PORTS: Vite defaults to 5173, not 3000
-      ports:
-        - "5173:5173"
-      environment:
-        - CHOKIDAR_USEPOLLING=true
-      depends_on:
-        - backend
-
-volumes:
-  mongo_data:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev -- --host

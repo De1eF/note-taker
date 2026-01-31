@@ -2,4 +2,7 @@ fastapi
 uvicorn
 motor
 pydantic
-email-validator
+python-dotenv
+google-auth
+requests
+pyjwt
