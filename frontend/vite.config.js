@@ -18,7 +18,7 @@ return defineConfig({
     },
     allowedHosts: [
       allowedHosts,
-      "https://webmington-ui-production.up.railway.app/"
+      "https://webmington-ui-production.up.railway.app"
     ]
   },
 })}
