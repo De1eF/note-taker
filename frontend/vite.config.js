@@ -16,6 +16,7 @@ export default ({ mode }) => {
       port: 5173,
       headers: {
         "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+        "Cross-Origin-Embedder-Policy": "unsafe-none"
       },
       allowedHosts: [
         ...allowedHosts
