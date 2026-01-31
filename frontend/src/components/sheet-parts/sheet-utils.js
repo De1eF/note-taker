@@ -1,24 +1,27 @@
-// ... existing imports
+// Helper: Preserves visual spacing (mostly handled by CSS pre-wrap now, but kept for safety)
+export const preserveNewlines = (text) => text;
 
-export const preserveNewlines = (text) => {
-  if (!text) return "";
-  return text.replace(/\n(?=\n)/g, '\n&nbsp;\n');
+// Extract unique tags for the connection dots
+export const extractTags = (content) => {
+  if (!content) return [];
+  const matches = content.match(/~(\w[\w-]*)/g);
+  if (!matches) return [];
+  return [...new Set(matches)].sort();
 };
 
-// NEW: formatTags - Converts ~tag to a link with a HASH
+// Convert ~tag to a special link format #tag:tagname
 export const formatTags = (text) => {
   if (!text) return "";
-  // Old: '$1[$2](tag:$2)'
-  // New: '$1[$2](#tag:$2)'  <-- Added #
   return text.replace(/([~\s]|^)~(\w[\w-]*)/g, '$1[$2](#tag:$2)');
 };
 
+// Only format tags, ignoring list logic
 export const prepareMarkdown = (text) => {
-  return preserveNewlines(formatTags(text));
+  return formatTags(text);
 };
 
+// Parse blocks (Headers vs Content)
 export const parseMarkdownBlocks = (text) => {
-  // ... (keep existing code unchanged)
   if (!text) return [];
   const rawBlocks = text.split(/(?=^#{1,3}\s)/gm);
   return rawBlocks.map((chunk, index) => {

@@ -28,4 +28,3 @@ class UpdateSheetModel(BaseModel):
     # NEW: Allow updating color
     color: Optional[str] = None 
     is_deleted: Optional[bool] = None
-    
