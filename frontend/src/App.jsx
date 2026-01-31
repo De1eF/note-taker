@@ -11,6 +11,8 @@ import SpaceManager from './components/SpaceManager';
 import LoginScreen from './components/LoginScreen';
 import UserProfile from './components/UserProfile';
 import { useService } from './services/use-service';
+import { extractTags } from './components/sheet-parts/sheet-utils';
+
 
 // --- SUB-COMPONENT: The Main Authenticated Interface ---
 // This component is only rendered when logged in, so its hooks run safely.
@@ -29,6 +31,38 @@ function MainCanvas({ service }) {
   const lastMousePos = useRef({ x: 0, y: 0 });
   const containerRef = useRef(null);
   const loadedSpaceId = useRef(null);
+  const [hoveredTag, setHoveredTag] = useState(null);
+  const tagConnections = React.useMemo(() => {
+
+  if (!sheets?.length) return {};
+
+  const map = {};
+
+  sheets.forEach(sheet => {
+    extractTags(sheet.content).forEach(tag => {
+      if (!map[tag]) map[tag] = new Set();
+    });
+  });
+
+  sheets.forEach(sheet => {
+    const tags = extractTags(sheet.content);
+    tags.forEach(tag => {
+      sheets.forEach(other => {
+        if (other._id !== sheet._id) {
+          const otherTags = extractTags(other.content);
+          if (otherTags.includes(tag)) {
+            map[tag].add(other.title || 'Untitled');
+          }
+        }
+      });
+    });
+  });
+
+  Object.keys(map).forEach(k => map[k] = [...map[k]]);
+
+  return map;
+}, [sheets]);
+
 
 useEffect(() => {
     // If no space or same space as before, do nothing
@@ -124,13 +158,24 @@ useEffect(() => {
         <UserProfile user={user} onLogout={handleLogout} />
 
         <Box sx={{ width: '100%', height: '100%', transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`, transformOrigin: '0 0', position: 'absolute' }}>
-          <ConnectionLayer sheets={sheets} />
-          {sheets.map(sheet => (
-            <Sheet
-              key={sheet._id} data={sheet} scale={view.scale}
-              onUpdate={handleUpdate} onDuplicate={handleDuplicate} onDelete={handleDelete} onDrag={handleDrag}
-            />
-          ))}
+          <ConnectionLayer
+          sheets={sheets}
+          hoveredTag={hoveredTag}
+        />
+
+        {sheets.map(sheet => (
+          <Sheet
+            key={sheet._id}
+            data={sheet}
+            scale={view.scale}
+            tagConnections={tagConnections}
+            setHoveredTag={setHoveredTag}
+            onUpdate={handleUpdate}
+            onDuplicate={handleDuplicate}
+            onDelete={handleDelete}
+            onDrag={handleDrag}
+          />
+        ))}
         </Box>
       </Box>
     </ThemeProvider>
