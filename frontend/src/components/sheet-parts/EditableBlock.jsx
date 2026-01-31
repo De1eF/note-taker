@@ -70,11 +70,11 @@ const LineItem = ({
     }
     else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      onNavigate(index - 1);
+      onNavigate(index - 1, e.target.selectionStart);
     }
     else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      onNavigate(index + 1);
+      onNavigate(index + 1, e.target.selectionStart);
     }
   };
 
@@ -93,6 +93,11 @@ const LineItem = ({
           '& .MuiInputBase-root': { padding: 0 },
           '& .MuiInputBase-input': { ...commonTextStyle, padding: 0, height: 'auto' }
         }}
+        autoComplete="off"
+  inputProps={{
+    autoComplete: 'off',
+    spellCheck: false,
+  }}
       />
     );
   }
@@ -211,9 +216,20 @@ const handleRemoveLine = (index) => {
     inputRefs.current[targetIndex]?.focus();
   });
 };
-  const handleNavigate = (targetIndex) => {
-    if (targetIndex >= 0 && targetIndex < lines.length) setEditingIndex(targetIndex);
-  };
+  const handleNavigate = (targetIndex, caretPos = 0) => {
+  if (targetIndex < 0 || targetIndex >= lines.length) return;
+
+  setEditingIndex(targetIndex);
+
+  requestAnimationFrame(() => {
+    const el = inputRefs.current[targetIndex];
+    if (!el) return;
+
+    const pos = Math.min(caretPos, el.value.length);
+    el.setSelectionRange(pos, pos);
+    el.focus();
+  });
+};
 
   const renderLines = () => {
     let activeIndentLevel = 0;
@@ -284,6 +300,11 @@ const handleRemoveLine = (index) => {
                 cursor: 'text' 
               }
             }}
+            autoComplete="off"
+  inputProps={{
+    autoComplete: 'off',
+    spellCheck: false,
+  }}
             // Prevent click from bubbling up (safety measure)
             onClick={(e) => e.stopPropagation()} 
           />
