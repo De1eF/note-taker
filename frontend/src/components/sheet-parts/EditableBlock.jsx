@@ -21,6 +21,7 @@ const TagComponent = ({ href, children, sheetColor }) => {
   const tagText = (!sheetColor || sheetColor === 'default') ? 'text.primary' : '#000000';
 
   if (isTag) {
+    const label = React.Children.toArray(children).join('').replace(/^~/, '');
     return (
       <Box component="span" sx={{
           display: 'inline-block', bgcolor: tagBg, color: tagText, padding: '0px 6px',
@@ -28,7 +29,7 @@ const TagComponent = ({ href, children, sheetColor }) => {
           borderColor: 'divider', mx: 0.5, lineHeight: 1.4, verticalAlign: 'baseline',
           textDecoration: 'none', pointerEvents: 'none'
         }}>
-        {children}
+        {label}
       </Box>
     );
   }
