@@ -99,6 +99,24 @@ export default function Sheet({
     if (newSet.has(index)) { newSet.delete(index); } else { newSet.add(index); }
     setCollapsedBlocks(newSet);
   };
+    const handleTitleUpdate = (index, newTitle) => {
+  const fullMarkdown = blocks.map((block, i) => {
+    if (i === index && block.type === 'section') {
+      const hashes = "#".repeat(block.level);
+      return `${hashes} ${newTitle}\n${block.body || ''}`;
+    }
+
+    if (block.type === 'section') {
+      const hashes = "#".repeat(block.level);
+      return `${hashes} ${block.title}\n${block.body || ''}`;
+    }
+
+    return block.content;
+  }).join('\n\n');
+
+  setLocalContent(fullMarkdown);
+  onUpdate(data._id, { content: fullMarkdown });
+};
 
   return (
     <Draggable
@@ -249,7 +267,8 @@ export default function Sheet({
                       sheetColor={data.color} 
                       isCollapsed={isThisCollapsed} 
                       onToggle={() => toggleBlockCollapse(i)}
-                      onSave={(txt) => handleBlockUpdate(i, txt)} // <-- Now calls the working handler
+                      onSave={(txt) => handleBlockUpdate(i, txt)}
+                      onUpdateTitle={(title) => handleTitleUpdate(i, title)}
                     />
                   );
                 });

@@ -39,9 +39,9 @@ const TagComponent = ({ href, children, sheetColor }) => {
 // --- SINGLE LINE COMPONENT ---
 const LineItem = ({ 
   content, index, isEditing, setEditingIndex, onUpdateLine, onAddLine, onRemoveLine, onNavigate, 
-  sheetColor, isList, indentation, extraTextOffset, inputRefs
+  sheetColor, isList, indentation, extraTextOffset, inputRefs, inputRefExternal
 }) => {
-  const inputRef = useRef(null);
+  const inputRef = inputRefExternal;
   const ignoreBlurRef = useRef(false);
   
 
@@ -81,9 +81,7 @@ const LineItem = ({
   if (isEditing) {
     return (
       <TextField
-        inputRef={el => {
-  if (el) inputRefs.current[index] = el;
-}} fullWidth variant="standard" value={content}
+        inputRef={inputRef} fullWidth variant="standard" value={content}
         onChange={(e) => onUpdateLine(index, e.target.value)} onKeyDown={handleKeyDown}
         onBlur={() => {
           if (ignoreBlurRef.current) return;
@@ -144,11 +142,15 @@ export default function EditableBlock({
   onSave, 
   sheetColor,
   isCollapsed = false, 
-  onToggle 
+  onToggle,
+  onUpdateTitle,
 }) {
   const [lines, setLines] = useState([]);
   const [editingIndex, setEditingIndex] = useState(null);
   const inputRefs = useRef({});
+  const setInputRef = (i) => (el) => {
+  if (el) inputRefs.current[i] = el;
+};
 
   useEffect(() => {
     // Extract body if section, or raw content if intro
@@ -197,12 +199,18 @@ export default function EditableBlock({
       inputRefs.current[newIndex]?.focus();
     });
   };
-  const handleRemoveLine = (index) => {
-    if (lines.length <= 1) { handleUpdateLine(0, ""); return; }
-    const newLines = lines.filter((_, i) => i !== index);
-    saveChanges(newLines);
-    setEditingIndex(Math.max(0, index - 1));
-  };
+const handleRemoveLine = (index) => {
+  const targetIndex = Math.max(0, index - 1);
+
+  const newLines = lines.filter((_, i) => i !== index);
+
+  setEditingIndex(targetIndex);
+  saveChanges(newLines);
+
+  requestAnimationFrame(() => {
+    inputRefs.current[targetIndex]?.focus();
+  });
+};
   const handleNavigate = (targetIndex) => {
     if (targetIndex >= 0 && targetIndex < lines.length) setEditingIndex(targetIndex);
   };
@@ -237,7 +245,7 @@ export default function EditableBlock({
                     onAddLine={handleAddLine} onRemoveLine={handleRemoveLine} onNavigate={handleNavigate}
                     sheetColor={sheetColor} isList={isList} indentation={indentation < 0 ? 0 : indentation}
                     extraTextOffset={extraTextOffset}
-                    inputRefs={inputRefs}
+                    inputRefExternal={setInputRef(i)}
                 />
             );
         })}
@@ -266,11 +274,8 @@ export default function EditableBlock({
             variant="standard"
             fullWidth
             value={block.title || ''}
-            onChange={(e) => {
-                // Ensure onUpdateTitle is passed from the parent component!
-                if (onUpdateTitle) onUpdateTitle(e.target.value); 
-            }}
             placeholder="Heading"
+            onChange={(e) => onUpdateTitle?.(e.target.value)}
             InputProps={{ 
               disableUnderline: true,
               style: { 
