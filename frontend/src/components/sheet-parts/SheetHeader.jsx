@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+// NEW: Import useTheme to detect Light/Dark mode
+import { useTheme } from '@mui/material/styles';
 import { Box, Typography, IconButton, Menu, MenuItem, TextField, Divider, Tooltip } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -7,7 +9,6 @@ import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
 import FormatColorFillIcon from '@mui/icons-material/FormatColorFill';
 
-// Predefined Palette
 const COLORS = [
   { name: 'Default', value: 'default' },
   { name: 'Red', value: '#ffcdd2' },
@@ -19,16 +20,10 @@ const COLORS = [
 ];
 
 export default function SheetHeader({ 
-  title, 
-  width, 
-  collapsed, 
-  setCollapsed, 
-  color, // NEW: Receive the specific sheet color
-  onTitleChange, 
-  onColorChange, 
-  onDuplicate, 
-  onDelete 
+  title, width, collapsed, setCollapsed, color, 
+  onTitleChange, onColorChange, onDuplicate, onDelete 
 }) {
+  const theme = useTheme(); // Hook to access theme
   const [anchorEl, setAnchorEl] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [localTitle, setLocalTitle] = useState(title);
@@ -40,10 +35,17 @@ export default function SheetHeader({
   const handleTitleBlur = () => { setIsEditing(false); if (localTitle !== title) onTitleChange(localTitle); };
   const handleTitleKeyDown = (e) => { if (e.key === 'Enter') handleTitleBlur(); };
 
-  // Determine Styles based on "Default" vs "Custom Color"
+  // --- STYLE LOGIC ---
   const isDefault = !color || color === 'default';
+  const isDarkMode = theme.palette.mode === 'dark';
+
   const headerBg = isDefault ? 'primary.main' : color;
-  const headerText = isDefault ? 'white' : 'rgba(0,0,0,0.87)'; // White for Blue, Black for Pastels
+  
+  // LOGIC: 
+  // 1. If Custom Color -> Always Black (readable on pastels).
+  // 2. If Default + Dark Mode -> Black (readable on light-blue primary).
+  // 3. If Default + Light Mode -> White (readable on dark-blue primary).
+  const headerText = (isDefault && !isDarkMode) ? 'white' : '#000000';
 
   return (
     <>
@@ -51,8 +53,8 @@ export default function SheetHeader({
         className="drag-handle"
         sx={{ 
           p: 1, 
-          bgcolor: headerBg, // Apply Color
-          color: headerText, // Apply Text Color
+          bgcolor: headerBg, 
+          color: headerText,
           cursor: 'move', 
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           borderBottom: '1px solid rgba(0,0,0,0.1)', flexShrink: 0,
@@ -67,12 +69,16 @@ export default function SheetHeader({
                 onMouseDown={(e) => e.stopPropagation()} 
                 InputProps={{ 
                     disableUnderline: true,
-                    style: { color: headerText, fontSize: '0.875rem', fontWeight: 500 } 
+                    style: { 
+                        color: headerText, 
+                        fontSize: '0.875rem', 
+                        fontWeight: 600 
+                    } 
                 }}
             />
         ) : (
             <Typography 
-                variant="subtitle2" noWrap sx={{ maxWidth: width - 80, cursor: 'text' }}
+                variant="subtitle2" noWrap sx={{ maxWidth: width - 80, cursor: 'text', fontWeight: 600 }}
                 onDoubleClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
                 title="Double-click to rename"
             >
@@ -81,23 +87,16 @@ export default function SheetHeader({
         )}
         
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <IconButton 
-            size="small" onClick={(e) => { e.stopPropagation(); setCollapsed(!collapsed); }} 
-            sx={{ color: headerText, p: 0.5 }}
-          >
+          <IconButton size="small" onClick={(e) => { e.stopPropagation(); setCollapsed(!collapsed); }} sx={{ color: headerText, p: 0.5 }}>
             {collapsed ? <UnfoldMoreIcon fontSize="small"/> : <UnfoldLessIcon fontSize="small"/>}
           </IconButton>
-          
           <IconButton size="small" onClick={handleMenuOpen} sx={{ color: headerText, p: 0.5 }}>
             <MoreVertIcon fontSize="small" />
           </IconButton>
         </Box>
       </Box>
 
-      <Menu 
-        anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose} onClick={(e) => e.stopPropagation()} 
-        MenuListProps={{ sx: { py: 0.5 } }}
-      >
+      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose} onClick={(e) => e.stopPropagation()} MenuListProps={{ sx: { py: 0.5 } }}>
         <Box sx={{ px: 2, py: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: 'bold' }}>
                 <FormatColorFillIcon sx={{ fontSize: 16, mr: 1 }} /> Color
@@ -110,10 +109,8 @@ export default function SheetHeader({
                             sx={{
                                 width: 20, height: 20, borderRadius: '50%',
                                 bgcolor: c.value === 'default' ? '#e0e0e0' : c.value,
-                                cursor: 'pointer',
-                                border: '1px solid rgba(0,0,0,0.1)',
-                                '&:hover': { transform: 'scale(1.2)', boxShadow: 1 },
-                                transition: 'all 0.1s'
+                                cursor: 'pointer', border: '1px solid rgba(0,0,0,0.1)',
+                                '&:hover': { transform: 'scale(1.2)', boxShadow: 1 }, transition: 'all 0.1s'
                             }}
                         />
                     </Tooltip>
