@@ -17,7 +17,8 @@ return defineConfig({
       "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
     },
     allowedHosts: [
-      allowedHosts
+      allowedHosts,
+      "https://webmington-ui-production.up.railway.app/"
     ]
   },
 })}
