@@ -1,158 +1,174 @@
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
+from motor.motor_asyncio import AsyncIOMotorClient
+from bson import ObjectId
 from typing import List
 import re
-from bson import ObjectId
-from app.database import sheet_collection
-from app.models import SheetModel, UpdateSheetModel, Position
+from .models import SheetModel, UpdateSheetModel
 
 app = FastAPI()
 
-# Allow CORS for Frontend
+# --- CORS Config ---
+origins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- Helper Functions ---
+# --- Database ---
+client = AsyncIOMotorClient("mongodb://mongo:27017")
+db = client.note_taker
+sheet_collection = db.sheets
 
-# ... inside backend/app/main.py
-
+# --- Helpers ---
 async def parse_and_update_connections(sheet_id: str, content: str):
     """
-    1. Parse tags from content using tilde (e.g., ~idea).
-    2. Find other sheets containing those tags.
-    3. Update connections list.
+    Parses tags ~tagname, finds matching sheets, and syncs connections bi-directionally.
+    Crucially, it removes stale connections from sheets that no longer match.
     """
-    # CHANGED: Regex from # to ~
-    # Matches ~tagname (alphanumeric + underscores/dashes)
+    # 1. Parse tags from content
     tags = set(re.findall(r"~(\w[\w-]*)", content))
     
-    if not tags:
-        # If no tags, clear connections
-        await sheet_collection.update_one(
-            {"_id": ObjectId(sheet_id)},
-            {"$set": {"connections": []}}
-        )
-        return []
-
-    # CHANGED: Regex query in Mongo to match ~tag
-    regex_queries = [{"content": {"$regex": f"~{tag}\\b"}} for tag in tags]
-    
-    related_cursor = sheet_collection.find({
-        "$or": regex_queries,
-        "_id": {"$ne": ObjectId(sheet_id)},
-        "is_deleted": False
-    })
-    
     related_ids = []
-    async for doc in related_cursor:
-        related_ids.append(str(doc["_id"]))
     
-    # Update this sheet
+    # 2. Find sheets containing those tags (if any tags exist)
+    if tags:
+        regex_queries = [{"content": {"$regex": f"~{tag}\\b"}} for tag in tags]
+        
+        related_cursor = sheet_collection.find({
+            "$or": regex_queries,
+            "_id": {"$ne": ObjectId(sheet_id)},
+            "is_deleted": False
+        })
+        
+        async for doc in related_cursor:
+            related_ids.append(str(doc["_id"]))
+    
+    # 3. Update THIS sheet's connections
     await sheet_collection.update_one(
         {"_id": ObjectId(sheet_id)},
         {"$set": {"connections": related_ids}}
     )
     
-    # Update others to point back here (Bi-directional)
+    # 4. Bi-directional Sync Logic
+    
+    # A. ADD connections: Ensure the found sheets point back to this one
     if related_ids:
         await sheet_collection.update_many(
             {"_id": {"$in": [ObjectId(rid) for rid in related_ids]}},
             {"$addToSet": {"connections": sheet_id}}
         )
 
-    return related_ids
-
-# --- API Routes ---
-
-@app.post("/sheets/", response_model=SheetModel)
-async def create_new_sheet(sheet: SheetModel):
-    new_sheet = sheet.model_dump(by_alias=True, exclude=["id"])
-    result = await sheet_collection.insert_one(new_sheet)
-    created_sheet = await sheet_collection.find_one({"_id": result.inserted_id})
-    return created_sheet
-
-@app.post("/sheets/{id}/duplicate", response_model=SheetModel)
-async def duplicate_sheet(id: str):
-    original = await sheet_collection.find_one({"_id": ObjectId(id)})
-    if not original:
-        raise HTTPException(status_code=404, detail="Sheet not found")
-    
-    # Offset position slightly so it doesn't overlap perfectly
-    new_pos = Position(x=original['positionInSpace']['x'] + 20, y=original['positionInSpace']['y'] + 20)
-    
-    new_sheet_data = {
-        "title": f"{original['title']} (Copy)",
-        "content": original['content'],
-        "connections": [], # Connections recalculated shortly
-        "positionInSpace": new_pos.model_dump(),
-        "is_deleted": False
+    # B. REMOVE connections (Cleanup): 
+    # Find any sheet that currently connects to THIS sheet...
+    # ...but is NOT in our new list of matches.
+    # Remove THIS sheet_id from their connections list.
+    cleanup_filter = {
+        "connections": sheet_id,
+        "_id": {"$nin": [ObjectId(rid) for rid in related_ids]}
     }
     
-    result = await sheet_collection.insert_one(new_sheet_data)
-    new_id = str(result.inserted_id)
-    
-    # Recalculate connections
-    await parse_and_update_connections(new_id, new_sheet_data['content'])
-    
-    created_sheet = await sheet_collection.find_one({"_id": result.inserted_id})
-    return created_sheet
+    await sheet_collection.update_many(
+        cleanup_filter,
+        {"$pull": {"connections": sheet_id}}
+    )
 
-@app.post("/sheets/{id}/connections")
-async def create_connections_to_sheets(id: str):
-    """Re-scans content and updates connections."""
-    sheet = await sheet_collection.find_one({"_id": ObjectId(id)})
-    if not sheet:
-        raise HTTPException(status_code=404, detail="Sheet not found")
-        
-    related_ids = await parse_and_update_connections(id, sheet['content'])
-    return {"message": "Connections updated", "connected_to": related_ids}
+    return related_ids
 
-@app.get("/sheets/{id}", response_model=SheetModel)
-async def get_sheet_by_id(id: str):
-    sheet = await sheet_collection.find_one({"_id": ObjectId(id)})
-    if sheet:
-        return sheet
-    raise HTTPException(status_code=404, detail="Sheet not found")
+# --- Routes ---
 
 @app.get("/sheets/", response_model=List[SheetModel])
-async def get_all_sheets():
-    """Returns all non-deleted sheets."""
+async def get_sheets():
     sheets = []
     cursor = sheet_collection.find({"is_deleted": False})
-    async for doc in cursor:
-        sheets.append(doc)
+    async for document in cursor:
+        sheets.append(document)
     return sheets
 
-@app.patch("/sheets/{id}", response_model=SheetModel)
-async def update_sheet_data(id: str, update_data: UpdateSheetModel):
+@app.post("/sheets/", response_model=SheetModel)
+async def create_sheet(sheet: SheetModel):
+    new_sheet = sheet.dict(by_alias=True)
+    if "_id" in new_sheet:
+        del new_sheet["_id"]
+    
+    result = await sheet_collection.insert_one(new_sheet)
+    created_sheet = await sheet_collection.find_one({"_id": result.inserted_id})
+    
+    # Run connection logic for the new sheet
+    if "content" in new_sheet:
+        await parse_and_update_connections(str(result.inserted_id), new_sheet["content"])
+        # Fetch again to get updated connections
+        created_sheet = await sheet_collection.find_one({"_id": result.inserted_id})
+        
+    return created_sheet
+
+@app.patch("/sheets/{sheet_id}", response_model=SheetModel)
+async def update_sheet(sheet_id: str, update_data: UpdateSheetModel):
     # Filter out None values
-    data = {k: v for k, v in update_data.model_dump().items() if v is not None}
+    data = {k: v for k, v in update_data.dict().items() if v is not None}
     
-    if len(data) >= 1:
-        update_result = await sheet_collection.update_one(
-            {"_id": ObjectId(id)}, 
-            {"$set": data}
-        )
-        if update_result.modified_count == 1:
-            # If content changed, we might want to auto-update connections
-            if "content" in data:
-                await parse_and_update_connections(id, data["content"])
+    if not data:
+        raise HTTPException(status_code=400, detail="No data provided")
+
+    # Perform the update
+    result = await sheet_collection.update_one(
+        {"_id": ObjectId(sheet_id)},
+        {"$set": data}
+    )
     
-    updated_sheet = await sheet_collection.find_one({"_id": ObjectId(id)})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Sheet not found")
+    
+    # If content changed, re-evaluate connections
+    if "content" in data:
+        await parse_and_update_connections(sheet_id, data["content"])
+
+    updated_sheet = await sheet_collection.find_one({"_id": ObjectId(sheet_id)})
     return updated_sheet
 
-@app.delete("/sheets/{id}")
-async def delete_sheet(id: str):
-    """Soft delete."""
+@app.post("/sheets/{sheet_id}/duplicate", response_model=SheetModel)
+async def duplicate_sheet(sheet_id: str):
+    original = await sheet_collection.find_one({"_id": ObjectId(sheet_id)})
+    if not original:
+        raise HTTPException(status_code=404, detail="Sheet not found")
+        
+    new_sheet = original.copy()
+    del new_sheet["_id"]
+    new_sheet["title"] = f"{original['title']} (Copy)"
+    # Offset position slightly
+    new_sheet["positionInSpace"]["x"] += 20
+    new_sheet["positionInSpace"]["y"] += 20
+    
+    result = await sheet_collection.insert_one(new_sheet)
+    
+    # Recalculate connections for the clone
+    await parse_and_update_connections(str(result.inserted_id), new_sheet["content"])
+    
+    created = await sheet_collection.find_one({"_id": result.inserted_id})
+    return created
+
+@app.delete("/sheets/{sheet_id}")
+async def delete_sheet(sheet_id: str):
+    # Soft delete
     result = await sheet_collection.update_one(
-        {"_id": ObjectId(id)},
+        {"_id": ObjectId(sheet_id)},
         {"$set": {"is_deleted": True}}
     )
-    if result.modified_count == 1:
-        return {"message": "Sheet soft deleted"}
-    raise HTTPException(status_code=404, detail="Sheet not found")
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Sheet not found")
+    
+    # Remove this ID from everyone else's connections
+    await sheet_collection.update_many(
+        {"connections": sheet_id},
+        {"$pull": {"connections": sheet_id}}
+    )
+        
+    return {"success": True}

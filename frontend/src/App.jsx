@@ -1,9 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Box, Fab, CssBaseline, IconButton, Snackbar, Button, Alert } from '@mui/material';
 import { ThemeProvider } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
+import Cookies from 'js-cookie'; // Import Cookies
 
 // Components
 import Sheet from './components/Sheet';
@@ -19,26 +20,45 @@ function App() {
     handleCreate, handleUpdate, handleDrag, handleDuplicate, handleDelete
   } = useService();
 
-  // --- Zoom & Pan State ---
-  const [view, setView] = useState({ x: 0, y: 0, scale: 1 });
+  // --- Zoom & Pan State (with Cookie Persistence) ---
+  const [view, setView] = useState(() => {
+    // Try to load saved view from cookies
+    const savedView = Cookies.get('canvas_view');
+    if (savedView) {
+      try {
+        return JSON.parse(savedView);
+      } catch (e) {
+        console.error("Failed to parse view cookie", e);
+      }
+    }
+    // Default fallback
+    return { x: 0, y: 0, scale: 1 };
+  });
+
   const [isPanning, setIsPanning] = useState(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
   const containerRef = useRef(null);
 
+  // --- Save View to Cookie ---
+  useEffect(() => {
+    // Save current view state to cookie (expires in 7 days)
+    // We use a slight timeout or just direct set since cookies are fast enough for this freq
+    // Ideally, debounce this if it causes lag, but for now direct set is okay for pan/zoom end.
+    // Let's just save it.
+    Cookies.set('canvas_view', JSON.stringify(view), { expires: 7 });
+  }, [view]);
+
   // --- Zoom Handler (Mouse Wheel) ---
   const handleWheel = (e) => {
-    // Prevent default browser zoom if ctrl is pressed (optional, but good UX)
     if (e.ctrlKey) e.preventDefault();
 
     const scaleAmount = -e.deltaY * 0.001;
-    const newScale = Math.min(Math.max(view.scale * (1 + scaleAmount), 0.1), 5); // Min 0.1x, Max 5x
+    const newScale = Math.min(Math.max(view.scale * (1 + scaleAmount), 0.1), 5);
 
-    // Calculate mouse position relative to the container
     const rect = containerRef.current.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    // Calculate new position to keep mouse pointer over the same coordinate
     const scaleRatio = newScale / view.scale;
     const newX = mouseX - (mouseX - view.x) * scaleRatio;
     const newY = mouseY - (mouseY - view.y) * scaleRatio;
@@ -46,19 +66,16 @@ function App() {
     setView({ x: newX, y: newY, scale: newScale });
   };
 
-  // --- Pan Handlers (Click & Drag) ---
-    const handleMouseDown = (e) => {
-    // 1. Check if we clicked on a Sheet (using the class we just added)
+  // --- Pan Handlers ---
+  const handleMouseDown = (e) => {
+    // 1. Check if we clicked on a Sheet
     if (e.target.closest('.sheet-wrapper')) return;
 
-    // 2. Check if we clicked a native UI element (Buttons, Inputs, Icons)
-    //    Note: MUI often nests things, so checking for 'button' tag or generic MUI classes is safest
+    // 2. Check if we clicked a native UI element
     if (e.target.closest('button') || e.target.closest('.MuiInputBase-root')) return;
 
-    // 3. If we are here, we are clicking empty space (or the grid)
+    // 3. Start Panning
     setIsPanning(true);
-    
-    // Capture start position
     lastMousePos.current = { x: e.clientX, y: e.clientY };
   };
 
@@ -84,7 +101,7 @@ function App() {
           width: '100vw', 
           height: '100vh', 
           bgcolor: 'background.default', 
-          overflow: 'hidden', // Hide scrollbars, we use virtual pan
+          overflow: 'hidden', 
           position: 'relative',
           color: 'text.primary',
           cursor: isPanning ? 'grabbing' : 'grab'
@@ -115,7 +132,7 @@ function App() {
           </Box>
         </Box>
 
-        {/* --- Transform Layer (The Infinite Canvas) --- */}
+        {/* Infinite Canvas Layer */}
         <Box 
           sx={{ 
             width: '100%', 
@@ -123,13 +140,11 @@ function App() {
             transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
             transformOrigin: '0 0',
             position: 'absolute',
-            // Dynamic Grid
             backgroundImage: mode === 'light' 
               ? 'radial-gradient(#ccc 1px, transparent 1px)' 
               : 'radial-gradient(#444 1px, transparent 1px)',
             backgroundSize: '20px 20px',
-            // Invert grid scale so dots stay relatively constant size (optional visual flair)
-            // or just let them scale. Let's let them scale for depth perception.
+            transition: isPanning ? 'none' : 'background-image 0.3s ease'
           }}
         >
           <ConnectionLayer sheets={sheets} />
@@ -138,7 +153,7 @@ function App() {
             <Sheet
               key={sheet._id}
               data={sheet}
-              scale={view.scale} // Pass scale to draggable
+              scale={view.scale}
               onUpdate={handleUpdate}
               onDuplicate={handleDuplicate}
               onDelete={handleDelete}

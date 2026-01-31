@@ -66,8 +66,8 @@ export function useService() {
     const startY = 50 + Math.random() * 50;
 
     const newSheet = {
-      title: "Untitled Note",
-      content: "Type #idea to connect...",
+      title: "Untitled Sheet",
+      content: "Type ~idea to connect...",
       positionInSpace: { x: startX, y: startY },
       connections: []
     };
