@@ -32,6 +32,8 @@ function MainCanvas({ service }) {
   const containerRef = useRef(null);
   const loadedSpaceId = useRef(null);
   const [hoveredTag, setHoveredTag] = useState(null);
+    const [isHoveringSheet, setIsHoveringSheet] = useState(false);
+
   const tagConnections = React.useMemo(() => {
 
   if (!sheets?.length) return {};
@@ -113,10 +115,15 @@ useEffect(() => {
   };
 
   const handleMouseDown = (e) => {
-    // Prevent panning when interacting with UI elements
-    if (e.target.closest('.sheet-wrapper') || e.target.closest('button') || e.target.closest('.MuiInputBase-root')) return;
-    setIsPanning(true);
-    lastMousePos.current = { x: e.clientX, y: e.clientY };
+    if (isHoveringSheet) return;
+
+    if (
+      e.target.closest('button') ||
+      e.target.closest('.MuiInputBase-root')
+    ) return;
+
+  setIsPanning(true);
+  lastMousePos.current = { x: e.clientX, y: e.clientY };
   };
 
   const handleMouseUp = () => setIsPanning(false);
@@ -174,6 +181,9 @@ useEffect(() => {
             onDuplicate={handleDuplicate}
             onDelete={handleDelete}
             onDrag={handleDrag}
+
+            onMouseEnter={() => setIsHoveringSheet(true)}
+            onMouseLeave={() => setIsHoveringSheet(false)}
           />
         ))}
         </Box>
