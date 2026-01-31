@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { debounce } from 'lodash';
 import { createTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { jwtDecode } from 'jwt-decode'; // fixed import
 
 const API_URL = import.meta.env.VITE_API_URL;
