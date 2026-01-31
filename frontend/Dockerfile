@@ -1,4 +1,4 @@
-# We use the alpine version for a small footprint
+# Use Node.js Alpine for small image
 FROM node:24-alpine
 
 WORKDIR /app
@@ -6,12 +6,17 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json ./
 
-# Clean install dependencies
+# Install dependencies
 RUN npm ci
 
 # Copy the rest of the app
 COPY . .
 
-EXPOSE 5173
+# Build production assets
+RUN npm run build
 
-CMD ["npm", "run", "dev"]
+# Expose default Vite preview port
+EXPOSE 4173
+
+# Run Vite preview in production
+CMD ["npx", "vite", "preview", "--port", "4173", "--host"]
