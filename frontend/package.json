@@ -8,19 +8,19 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "jest" 
+    "test": "jest"
   },
   "dependencies": {
-    "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.14.1",
-    "@mui/icons-material": "^7.3.7",
-    "@mui/material": "^7.3.7",
-    "axios": "^1.13.4",
-    "lodash": "^4.17.23",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "react-draggable": "^4.5.0",
-    "react-markdown": "^10.1.0"
+    "@emotion/react": "^11.x",
+    "@emotion/styled": "^11.x",
+    "@mui/icons-material": "^5.x",
+    "@mui/material": "^5.x",
+    "axios": "^1.x",
+    "js-cookie": "^3.0.5",
+    "react": "^18.x",
+    "react-dom": "^18.x",
+    "react-draggable": "^4.x",
+    "react-markdown": "^9.x"
   },
   "devDependencies": {
     "@babel/core": "^7.28.6",

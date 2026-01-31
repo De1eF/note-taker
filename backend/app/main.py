@@ -19,21 +19,28 @@ app.add_middleware(
 
 # --- Helper Functions ---
 
+# ... inside backend/app/main.py
+
 async def parse_and_update_connections(sheet_id: str, content: str):
     """
-    1. Parse hashtags from content (e.g., #idea).
+    1. Parse tags from content using tilde (e.g., ~idea).
     2. Find other sheets containing those tags.
-    3. Update connections list for the source sheet.
+    3. Update connections list.
     """
-    # Regex to find tags
-    hashtags = set(re.findall(r"#(\w+)", content))
+    # CHANGED: Regex from # to ~
+    # Matches ~tagname (alphanumeric + underscores/dashes)
+    tags = set(re.findall(r"~(\w[\w-]*)", content))
     
-    if not hashtags:
+    if not tags:
+        # If no tags, clear connections
+        await sheet_collection.update_one(
+            {"_id": ObjectId(sheet_id)},
+            {"$set": {"connections": []}}
+        )
         return []
 
-    # Find sheets that have content matching these hashtags
-    # Note: simple regex search in Mongo. For production, maintain a 'tags' array field.
-    regex_queries = [{"content": {"$regex": f"#{tag}\\b"}} for tag in hashtags]
+    # CHANGED: Regex query in Mongo to match ~tag
+    regex_queries = [{"content": {"$regex": f"~{tag}\\b"}} for tag in tags]
     
     related_cursor = sheet_collection.find({
         "$or": regex_queries,
@@ -45,13 +52,13 @@ async def parse_and_update_connections(sheet_id: str, content: str):
     async for doc in related_cursor:
         related_ids.append(str(doc["_id"]))
     
-    # Update the source sheet's connection list
+    # Update this sheet
     await sheet_collection.update_one(
         {"_id": ObjectId(sheet_id)},
         {"$set": {"connections": related_ids}}
     )
     
-    # (Optional) Bi-directional update: Update the other sheets to point back to this one
+    # Update others to point back here (Bi-directional)
     if related_ids:
         await sheet_collection.update_many(
             {"_id": {"$in": [ObjectId(rid) for rid in related_ids]}},

@@ -1,12 +1,27 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createTheme } from '@mui/material/styles';
 import axios from 'axios';
+import Cookies from 'js-cookie'; // Import cookie library
 
 const API_URL = 'http://localhost:8000';
 
 export function useService() {
   const [sheets, setSheets] = useState([]);
-  const [mode, setMode] = useState('light'); // 'light' | 'dark'
+  
+  // --- Theme State with Cookie Persistence ---
+  const [mode, setMode] = useState(() => {
+    // Check cookie on initial load. Default to 'light' if missing.
+    return Cookies.get('app_theme') || 'light';
+  });
+
+  // Save to cookie whenever mode changes (expires in 365 days)
+  useEffect(() => {
+    Cookies.set('app_theme', mode, { expires: 365 });
+  }, [mode]);
+
+  // --- Undo / Snackbar State ---
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [lastDeletedId, setLastDeletedId] = useState(null);
 
   // --- Theme Logic ---
   const theme = useMemo(
@@ -32,8 +47,7 @@ export function useService() {
     setMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'));
   };
 
-  // --- API / Data Logic ---
-  
+  // --- API Logic ---
   const fetchSheets = async () => {
     try {
       const res = await axios.get(`${API_URL}/sheets/`);
@@ -43,7 +57,6 @@ export function useService() {
     }
   };
 
-  // Initial load
   useEffect(() => {
     fetchSheets();
   }, []);
@@ -59,19 +72,13 @@ export function useService() {
       connections: []
     };
     
-    // Create then refresh
     await axios.post(`${API_URL}/sheets/`, newSheet);
     fetchSheets();
   };
 
   const handleUpdate = async (id, data) => {
-    // Optimistic Update
     setSheets(prev => prev.map(s => s._id === id ? { ...s, ...data } : s));
-    
-    // API Call
     await axios.patch(`${API_URL}/sheets/${id}`, data);
-    
-    // Conditional Refresh for connections
     if (data.content) {
        setTimeout(fetchSheets, 100); 
     }
@@ -90,13 +97,30 @@ export function useService() {
   const handleDelete = async (id) => {
     setSheets(prev => prev.filter(s => s._id !== id));
     await axios.delete(`${API_URL}/sheets/${id}`);
+    setLastDeletedId(id);
+    setSnackbarOpen(true);
   };
 
-  // Return everything the UI needs
+  const handleUndoDelete = async () => {
+    if (!lastDeletedId) return;
+    await axios.patch(`${API_URL}/sheets/${lastDeletedId}`, { is_deleted: false });
+    await fetchSheets();
+    setSnackbarOpen(false);
+    setLastDeletedId(null);
+  };
+
+  const handleSnackbarClose = (event, reason) => {
+    if (reason === 'clickaway') return;
+    setSnackbarOpen(false);
+  };
+
   return {
     sheets,
     mode,
     theme,
+    snackbarOpen,
+    handleUndoDelete,
+    handleSnackbarClose,
     toggleColorMode,
     handleCreate,
     handleUpdate,
