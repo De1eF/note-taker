@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Avatar, Menu, MenuItem, ListItemIcon, ListItemText, Tooltip } from '@mui/material';
+import { Box, Avatar, Menu, MenuItem, ListItemIcon, ListItemText, Tooltip, Typography } from '@mui/material';
 import LogoutIcon from '@mui/icons-material/Logout';
 
 export default function UserProfile({ user, onLogout }) {
@@ -13,18 +13,26 @@ export default function UserProfile({ user, onLogout }) {
 
   return (
     <Box sx={{ position: 'fixed', bottom: 20, right: 20, zIndex: 1100 }}>
-      <Tooltip title={user.name}>
+      <Tooltip title={user.name || "User"}>
         <Avatar 
           src={user.picture} 
           alt={user.name}
           onClick={handleClick}
+          // --- THE FIX ---
+          // Google images require this policy to load correctly on localhost
+          imgProps={{ referrerPolicy: "no-referrer" }} 
+          // ----------------
           sx={{ 
             width: 48, height: 48, cursor: 'pointer', 
             border: '2px solid white', boxShadow: 3,
             transition: 'transform 0.2s',
-            '&:hover': { transform: 'scale(1.1)' }
+            '&:hover': { transform: 'scale(1.1)' },
+            bgcolor: 'secondary.main' // Fallback color if image fails
           }} 
-        />
+        >
+          {/* Fallback Initials if image fails */}
+          {user.name ? user.name.charAt(0).toUpperCase() : "U"}
+        </Avatar>
       </Tooltip>
 
       <Menu
@@ -48,4 +56,3 @@ export default function UserProfile({ user, onLogout }) {
     </Box>
   );
 }
-import { Typography } from '@mui/material';
