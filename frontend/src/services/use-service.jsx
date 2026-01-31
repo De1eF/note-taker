@@ -5,7 +5,7 @@ import { createTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { jwtDecode } from "jwt-decode"; // Fix import
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL;
 
 export const useService = () => {
   // --- AUTH STATE ---

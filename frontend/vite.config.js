@@ -20,7 +20,14 @@ export default ({ mode }) => {
       },
       allowedHosts: [
         ...allowedHosts
-      ],
+      ]
     },
+    preview: {
+      host: true,
+      headers: {
+        "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+        "Cross-Origin-Embedder-Policy": "unsafe-none",
+      },
+    }
   })
 }
