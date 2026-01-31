@@ -6,11 +6,8 @@ export default ({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
   // Parse allowed hosts from comma-separated string
-  const allowedHosts = env.VITE_ALLOWED_HOSTS
-    ? env.VITE_ALLOWED_HOSTS.split(',')
-    : ['localhost']
+  const allowedHosts = env.VITE_ALLOWED_HOSTS.split(',');
 
-// https://vitejs.dev/config/
 return defineConfig({
   plugins: [react()],
   server: {
@@ -20,7 +17,6 @@ return defineConfig({
       "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
     },
     allowedHosts: [
-      'localhost',
       allowedHosts
     ]
   },
