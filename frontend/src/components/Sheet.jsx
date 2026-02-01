@@ -15,9 +15,7 @@ export default function Sheet({
   onDelete,
   onDrag,
   scale,
-  setHoveredTag,
-  onMouseEnter,
-  onMouseLeave
+  setHoveredTag
 }) {
   const [localContent, setLocalContent] = useState(data.content || "");
   const [collapsed, setCollapsed] = useState(data.collapsed || false);
@@ -130,8 +128,7 @@ export default function Sheet({
       <div
   ref={nodeRef}
   style={{ position: 'absolute', zIndex: 5 }}
-  onMouseEnter={onMouseEnter}
-  onMouseLeave={onMouseLeave}
+  onPointerDown={(e) => e.stopPropagation()}
 >
 <div onMouseDown={handleResizeStartOptimized} style={resizeHandleStyle} title="Drag to resize" />
 

@@ -28,6 +28,10 @@ function MainCanvas({ service }) {
   // --- CANVAS LOCAL STATE ---
   const [view, setView] = useState({ x: 0, y: 0, scale: 1 });
   const [isPanning, setIsPanning] = useState(false);
+  const pointers = useRef(new Map());
+  const pinchStartDistance = useRef(0);
+  const pinchStartScale = useRef(1);
+  const pinchCenter = useRef({ x: 0, y: 0 });
   const lastMousePos = useRef({ x: 0, y: 0 });
   const containerRef = useRef(null);
   const loadedSpaceId = useRef(null);
@@ -106,27 +110,94 @@ useEffect(() => {
     setView({ x: newX, y: newY, scale: newScale });
   };
 
-  const handleMouseMove = (e) => {
-    if (!isPanning) return;
-    const deltaX = e.clientX - lastMousePos.current.x;
-    const deltaY = e.clientY - lastMousePos.current.y;
-    setView(prev => ({ ...prev, x: prev.x + deltaX, y: prev.y + deltaY }));
+const handlePointerDown = (e) => {
+  if (
+    e.target.closest('button') ||
+    e.target.closest('.MuiInputBase-root') ||
+    e.target !== e.currentTarget
+  ) return;
+
+  pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (pointers.current.size === 1) {
+    setIsPanning(!isHoveringSheet);
     lastMousePos.current = { x: e.clientX, y: e.clientY };
-  };
+  }
 
-  const handleMouseDown = (e) => {
-    if (isHoveringSheet) return;
+  if (pointers.current.size === 2) {
+    const [p1, p2] = [...pointers.current.values()];
+    pinchStartDistance.current = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+    pinchStartScale.current = view.scale;
 
-    if (
-      e.target.closest('button') ||
-      e.target.closest('.MuiInputBase-root')
-    ) return;
+    pinchCenter.current = {
+      x: (p1.x + p2.x) / 2,
+      y: (p1.y + p2.y) / 2
+    };
+  }
 
-  setIsPanning(true);
-  lastMousePos.current = { x: e.clientX, y: e.clientY };
-  };
+  e.currentTarget.setPointerCapture(e.pointerId);
+};
 
-  const handleMouseUp = () => setIsPanning(false);
+
+const handlePointerMove = (e) => {
+  if (!pointers.current.has(e.pointerId)) return;
+
+  pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (pointers.current.size === 1 && isPanning) {
+    const pos = pointers.current.get(e.pointerId);
+
+    const dx = pos.x - lastMousePos.current.x;
+    const dy = pos.y - lastMousePos.current.y;
+
+    setView(v => ({
+      ...v,
+      x: v.x + dx,
+      y: v.y + dy
+    }));
+
+    lastMousePos.current = pos;
+  }
+
+  if (pointers.current.size === 2) {
+    const [p1, p2] = [...pointers.current.values()];
+    const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+
+    const scaleFactor = dist / pinchStartDistance.current;
+    const newScale = Math.min(
+      Math.max(pinchStartScale.current * scaleFactor, 0.1),
+      5
+    );
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const cx = pinchCenter.current.x - rect.left;
+    const cy = pinchCenter.current.y - rect.top;
+
+    setView(v => {
+      const ratio = newScale / v.scale;
+
+      return {
+        x: cx - (cx - v.x) * ratio,
+        y: cy - (cy - v.y) * ratio,
+        scale: newScale
+      };
+    });
+  }
+};
+
+const handlePointerUp = (e) => {
+  pointers.current.delete(e.pointerId);
+
+  if (pointers.current.size < 2) {
+    pinchStartDistance.current = 0;
+  }
+
+  if (pointers.current.size === 0) {
+    setIsPanning(false);
+  }
+
+  e.currentTarget.releasePointerCapture(e.pointerId);
+};
 
   return (
     <ThemeProvider theme={theme}>
@@ -139,7 +210,11 @@ useEffect(() => {
             backgroundSize: `${20 * view.scale}px ${20 * view.scale}px`,
             backgroundPosition: `${view.x}px ${view.y}px`,
         }}
-        onWheel={handleWheel} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onWheel={handleWheel}
         ref={containerRef}
       >
         <Fab color="primary" sx={{ position: 'fixed', top: 20, left: 20, zIndex: 1000 }} onClick={handleCreate}>
@@ -181,9 +256,12 @@ useEffect(() => {
             onDuplicate={handleDuplicate}
             onDelete={handleDelete}
             onDrag={handleDrag}
+            sx={{
+              touchAction: 'none',
+            }}
 
-            onMouseEnter={() => setIsHoveringSheet(true)}
-            onMouseLeave={() => setIsHoveringSheet(false)}
+            onPointerEnter={() => setIsHoveringSheet(true)}
+            onPointerLeave={() => setIsHoveringSheet(false)}
           />
         ))}
         </Box>
