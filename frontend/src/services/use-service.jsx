@@ -40,7 +40,11 @@ export const useService = () => {
       const res = await api.post('/auth/login', { token: googleToken });
 
       // Store Session Token
-      setToken(res.data.access_token);
+      if (!token)
+      {
+        setToken(res.data.access_token);
+         localStorage.setItem('session_token', res.data.access_token);
+      }
     } catch (error) {
       console.error('Login Failed', error);
       alert('Authentication failed. Please try again.');
@@ -81,7 +85,6 @@ export const useService = () => {
   const [spaces, setSpaces] = useState([]);
   const [currentSpace, setCurrentSpace] = useState(null);
   const [sheets, setSheets] = useState([]);
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
 
   // --- INITIAL LOAD ---
   useEffect(() => {
