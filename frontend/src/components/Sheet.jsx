@@ -315,6 +315,7 @@ export default function Sheet({
                       {!isHeader && (
                         <EditableBlock
                           initialText={block.content || ''}
+                          sheetColor={data.color}
                           onChange={(text) => handleBlockUpdate(i, text)}
                         />
                       )}
@@ -322,6 +323,7 @@ export default function Sheet({
                       {isHeader && !isThisCollapsed && (
                         <EditableBlock
                           initialText={block.body || ''}
+                          sheetColor={data.color}
                           onChange={(text) => handleBlockUpdate(i, text)}
                         />
                       )}

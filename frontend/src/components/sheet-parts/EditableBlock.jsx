@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from '@mui/material/styles';
 
-function EditableBlock({ initialText = '', onChange }) {
+function EditableBlock({ initialText = '', onChange, sheetColor }) {
   const theme = useTheme();
   const [lines, setLines] = useState(() => initialText.split('\n'));
   const [editingIndex, setEditingIndex] = useState(null);
@@ -139,7 +139,37 @@ function EditableBlock({ initialText = '', onChange }) {
               fontSize: (theme && theme.typography && theme.typography.body2 && theme.typography.body2.fontSize) || 'inherit',
             }}
           >
-            {line || <span style={{ opacity: 0.35 }}>{'\u00A0'}</span>}
+            {line ? (
+              // Render inline ~tags as styled boxes
+              line.split(/(~[A-Za-z0-9_-]+)/g).map((part, idx) => {
+                if (!part) return null;
+                if (part.startsWith('~')) {
+                  const tagText = part.slice(1);
+                  const bg = (!sheetColor || sheetColor === 'default') ? theme?.palette?.action?.selected : sheetColor;
+                  const fg = (!sheetColor || sheetColor === 'default') ? theme?.palette?.text?.primary : '#000000';
+                  return (
+                    <span
+                      key={idx}
+                      style={{
+                        display: 'inline-block',
+                        background: bg,
+                        color: fg,
+                        borderRadius: 4,
+                        padding: '2px 6px',
+                        marginRight: 6,
+                        fontWeight: 600,
+                        fontSize: '0.85em',
+                      }}
+                    >
+                      {tagText}
+                    </span>
+                  );
+                }
+                return part;
+              })
+            ) : (
+              <span style={{ opacity: 0.35 }}>{'\u00A0'}</span>
+            )}
           </div>
         )
       )}
