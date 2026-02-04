@@ -31,6 +31,13 @@ export default function Sheet({
   useEffect(() => { setLocalContent(data.content || ""); }, [data.content]);
   useEffect(() => { if (data.width) setWidth(data.width); }, [data.width]);
   useEffect(() => { setCollapsed(data.collapsed || false); }, [data.collapsed]);
+  useEffect(() => {
+    if (data.collapsedBlockIndices) {
+      setCollapsedBlocks(new Set(data.collapsedBlockIndices));
+    } else {
+      setCollapsedBlocks(new Set());
+    }
+  }, [data.collapsedBlockIndices]);
 
   const tags = useMemo(() => extractTags(localContent), [localContent]);
   const blocks = useMemo(() => parseMarkdownBlocks(localContent), [localContent]);
@@ -136,6 +143,7 @@ export default function Sheet({
     const newSet = new Set(collapsedBlocks);
     if (newSet.has(index)) { newSet.delete(index); } else { newSet.add(index); }
     setCollapsedBlocks(newSet);
+    onUpdate(data._id, { collapsedBlockIndices: Array.from(newSet) });
   };
     const handleTitleUpdate = (index, newTitle) => {
   const fullMarkdown = blocks.map((block, i) => {
