@@ -21,6 +21,9 @@ export default function Sheet({
   const [collapsed, setCollapsed] = useState(data.collapsed || false);
   const [width, setWidth] = useState(data.width || 320);
   const [isResizing, setIsResizing] = useState(false);
+  const [isHandleActive, setIsHandleActive] = useState(false);
+  const [isHandleHover, setIsHandleHover] = useState(false);
+  const [isCoarsePointer, setIsCoarsePointer] = useState(false);
   const [collapsedBlocks, setCollapsedBlocks] = useState(new Set());
 
   const nodeRef = useRef(null);
@@ -68,28 +71,65 @@ export default function Sheet({
   };
 
   const handleResizeStartOptimized = (e) => {
+    // Use pointer events so touch devices can resize by grabbing the edge.
     e.preventDefault(); e.stopPropagation();
     const startX = e.clientX;
     const startWidth = widthRef.current;
     setIsResizing(true);
-    const handleMouseMove = (moveEvent) => {
-        const deltaX = moveEvent.clientX - startX;
-        const newWidth = Math.max(200, startWidth + (deltaX / scale));
-        setWidth(newWidth);
+    setIsHandleActive(true);
+
+    const handleMove = (moveEvent) => {
+      moveEvent.preventDefault?.();
+      const deltaX = moveEvent.clientX - startX;
+      const newWidth = Math.max(200, startWidth + (deltaX / scale));
+      setWidth(newWidth);
     };
-    const handleMouseUp = (upEvent) => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-        setIsResizing(false);
-        const deltaX = upEvent.clientX - startX;
-        const finalWidth = Math.max(200, startWidth + (deltaX / scale));
-        onUpdate(data._id, { width: finalWidth });
+
+    const handleUp = (upEvent) => {
+      document.removeEventListener('pointermove', handleMove);
+      document.removeEventListener('pointerup', handleUp);
+      setIsResizing(false);
+      setIsHandleActive(false);
+      const deltaX = upEvent.clientX - startX;
+      const finalWidth = Math.max(200, startWidth + (deltaX / scale));
+      onUpdate(data._id, { width: finalWidth });
     };
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+
+    document.addEventListener('pointermove', handleMove, { passive: false });
+    document.addEventListener('pointerup', handleUp);
+
+    // Try to capture the pointer on the handle so moves are routed correctly
+    if (e.pointerId && e.currentTarget && typeof e.currentTarget.setPointerCapture === 'function') {
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
+    }
   };
 
-    const resizeHandleStyle = { position: 'absolute', right: 0, top: 0, bottom: 0, width: '10px', cursor: 'ew-resize', zIndex: 20, opacity: 0, '&:hover': { opacity: 1 } };
+    useEffect(() => {
+      // detect coarse pointer (touch) so we can widen the hit target
+      const mq = window.matchMedia && window.matchMedia('(pointer: coarse)');
+      const setCoarse = () => { setIsCoarsePointer(!!(mq && mq.matches)); };
+      setCoarse();
+      if (mq && typeof mq.addEventListener === 'function') mq.addEventListener('change', setCoarse);
+      else if (mq && typeof mq.addListener === 'function') mq.addListener(setCoarse);
+      return () => {
+        if (mq && typeof mq.removeEventListener === 'function') mq.removeEventListener('change', setCoarse);
+        else if (mq && typeof mq.removeListener === 'function') mq.removeListener(setCoarse);
+      };
+    }, []);
+
+    const resizeHandleStyle = {
+      position: 'absolute',
+      right: 0,
+      top: 0,
+      bottom: 0,
+      width: isCoarsePointer ? '24px' : '10px',
+      cursor: 'ew-resize',
+      zIndex: 20,
+      opacity: (isHandleActive || isHandleHover) ? 1 : 0,
+      background: (isHandleActive || isHandleHover) ? 'rgba(25,118,210,0.10)' : 'transparent',
+      transition: 'opacity 120ms, background 120ms',
+      touchAction: 'none',
+    };
 
 
     const toggleBlockCollapse = (index) => {
@@ -130,7 +170,7 @@ export default function Sheet({
   style={{ position: 'absolute', zIndex: 5 }}
   onPointerDown={(e) => e.stopPropagation()}
 >
-<div onMouseDown={handleResizeStartOptimized} style={resizeHandleStyle} title="Drag to resize" />
+<div onPointerDown={handleResizeStartOptimized} style={resizeHandleStyle} title="Drag to resize" />
 
         {/* TAG DOTS */}
 {tags.map((tag, index) => {
@@ -250,23 +290,42 @@ export default function Sheet({
                   const isHeader = block.type === 'section';
                   const level = block.level;
                   const isThisCollapsed = collapsedBlocks.has(i);
-                  
+
                   // Logic to hide nested blocks if parent is collapsed locally
                   if (currentCollapseLevel !== null) {
-                      if (isHeader && level <= currentCollapseLevel) { currentCollapseLevel = null; } else { return null; }
+                    if (isHeader && level <= currentCollapseLevel) { currentCollapseLevel = null; } else { return null; }
                   }
                   if (isThisCollapsed && isHeader && currentCollapseLevel === null) { currentCollapseLevel = level; }
-                  
+
                   return (
-                    <EditableBlock 
-                      key={i} 
-                      block={block} 
-                      sheetColor={data.color} 
-                      isCollapsed={isThisCollapsed} 
-                      onToggle={() => toggleBlockCollapse(i)}
-                      onSave={(txt) => handleBlockUpdate(i, txt)}
-                      onUpdateTitle={(title) => handleTitleUpdate(i, title)}
-                    />
+                    <div key={i} style={{ marginBottom: 8 }}>
+                      {isHeader && (
+                        <div
+                          onDoubleClick={() => {
+                            const t = window.prompt('Section title', block.title || '');
+                            if (t !== null) handleTitleUpdate(i, t);
+                          }}
+                          onClick={(e) => { e.stopPropagation(); toggleBlockCollapse(i); }}
+                          style={{ fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        >
+                          {block.title}
+                        </div>
+                      )}
+
+                      {!isHeader && (
+                        <EditableBlock
+                          initialText={block.content || ''}
+                          onChange={(text) => handleBlockUpdate(i, text)}
+                        />
+                      )}
+
+                      {isHeader && !isThisCollapsed && (
+                        <EditableBlock
+                          initialText={block.body || ''}
+                          onChange={(text) => handleBlockUpdate(i, text)}
+                        />
+                      )}
+                    </div>
                   );
                 });
               })()}
