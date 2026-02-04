@@ -24,20 +24,14 @@ export default function Sheet({
   const [isHandleActive, setIsHandleActive] = useState(false);
   const [isHandleHover, setIsHandleHover] = useState(false);
   const [isCoarsePointer, setIsCoarsePointer] = useState(false);
-  const [collapsedBlocks, setCollapsedBlocks] = useState(new Set());
+  
 
   const nodeRef = useRef(null);
 
   useEffect(() => { setLocalContent(data.content || ""); }, [data.content]);
   useEffect(() => { if (data.width) setWidth(data.width); }, [data.width]);
   useEffect(() => { setCollapsed(data.collapsed || false); }, [data.collapsed]);
-  useEffect(() => {
-    if (data.collapsedBlockIndices) {
-      setCollapsedBlocks(new Set(data.collapsedBlockIndices));
-    } else {
-      setCollapsedBlocks(new Set());
-    }
-  }, [data.collapsedBlockIndices]);
+  
 
   const tags = useMemo(() => extractTags(localContent), [localContent]);
   const blocks = useMemo(() => parseMarkdownBlocks(localContent), [localContent]);
@@ -139,12 +133,7 @@ export default function Sheet({
     };
 
 
-    const toggleBlockCollapse = (index) => {
-    const newSet = new Set(collapsedBlocks);
-    if (newSet.has(index)) { newSet.delete(index); } else { newSet.add(index); }
-    setCollapsedBlocks(newSet);
-    onUpdate(data._id, { collapsedBlockIndices: Array.from(newSet) });
-  };
+  
     const handleTitleUpdate = (index, newTitle) => {
   const fullMarkdown = blocks.map((block, i) => {
     if (i === index && block.type === 'section') {
@@ -292,53 +281,41 @@ export default function Sheet({
                    Click to start typing...
                 </Typography>
               )}
-              {(() => {
-                let currentCollapseLevel = null;
-                return blocks.map((block, i) => {
-                  const isHeader = block.type === 'section';
-                  const level = block.level;
-                  const isThisCollapsed = collapsedBlocks.has(i);
+              {blocks.map((block, i) => {
+                const isHeader = block.type === 'section';
 
-                  // Logic to hide nested blocks if parent is collapsed locally
-                  if (currentCollapseLevel !== null) {
-                    if (isHeader && level <= currentCollapseLevel) { currentCollapseLevel = null; } else { return null; }
-                  }
-                  if (isThisCollapsed && isHeader && currentCollapseLevel === null) { currentCollapseLevel = level; }
+                return (
+                  <div key={i} style={{ marginBottom: 8 }}>
+                    {isHeader && (
+                      <div
+                        onDoubleClick={() => {
+                          const t = window.prompt('Section title', block.title || '');
+                          if (t !== null) handleTitleUpdate(i, t);
+                        }}
+                        style={{ fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                      >
+                        {block.title}
+                      </div>
+                    )}
 
-                  return (
-                    <div key={i} style={{ marginBottom: 8 }}>
-                      {isHeader && (
-                        <div
-                          onDoubleClick={() => {
-                            const t = window.prompt('Section title', block.title || '');
-                            if (t !== null) handleTitleUpdate(i, t);
-                          }}
-                          onClick={(e) => { e.stopPropagation(); toggleBlockCollapse(i); }}
-                          style={{ fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
-                        >
-                          {block.title}
-                        </div>
-                      )}
+                    {!isHeader && (
+                      <EditableBlock
+                        initialText={block.content || ''}
+                        sheetColor={data.color}
+                        onChange={(text) => handleBlockUpdate(i, text)}
+                      />
+                    )}
 
-                      {!isHeader && (
-                        <EditableBlock
-                          initialText={block.content || ''}
-                          sheetColor={data.color}
-                          onChange={(text) => handleBlockUpdate(i, text)}
-                        />
-                      )}
-
-                      {isHeader && !isThisCollapsed && (
-                        <EditableBlock
-                          initialText={block.body || ''}
-                          sheetColor={data.color}
-                          onChange={(text) => handleBlockUpdate(i, text)}
-                        />
-                      )}
-                    </div>
-                  );
-                });
-              })()}
+                    {isHeader && (
+                      <EditableBlock
+                        initialText={block.body || ''}
+                        sheetColor={data.color}
+                        onChange={(text) => handleBlockUpdate(i, text)}
+                      />
+                    )}
+                  </div>
+                );
+              })}
             </CardContent>
           )}
         </Card>
