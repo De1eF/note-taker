@@ -92,6 +92,17 @@ useEffect(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
 
+  // Ensure touchmove preventDefault is attached with passive: false
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const onTouchMove = (ev) => ev.preventDefault();
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+
+    return () => el.removeEventListener('touchmove', onTouchMove);
+  }, []);
+
   // --- MOUSE HANDLERS ---
   const handleWheel = (e) => {
     // Prevent default browser scrolling/zooming so the canvas handles it exclusively
@@ -111,12 +122,8 @@ useEffect(() => {
     setView({ x: newX, y: newY, scale: newScale });
   };
 
-const handlePointerDown = (e) => {
-  if (
-    e.target.closest('button') ||
-    e.target.closest('.MuiInputBase-root') ||
-    e.target !== e.currentTarget
-  ) return;
+  const handlePointerDown = (e) => {
+if (e.target.closest('button') || e.target.closest('.MuiInputBase-root')) return;
 
   pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
@@ -217,9 +224,12 @@ const handlePointerUp = (e) => {
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         onWheel={handleWheel}
-        onTouchMove={(e) => e.preventDefault()}
         ref={containerRef}
       >
+
+        {/* Attach a non-passive touchmove listener so calling preventDefault() is allowed */}
+        {/* This avoids the browser warning about passive event listeners. */}
+        
         <Fab color="primary" sx={{ position: 'fixed', top: 20, left: 20, zIndex: 1000 }} onClick={handleCreate}>
           <AddIcon />
         </Fab>

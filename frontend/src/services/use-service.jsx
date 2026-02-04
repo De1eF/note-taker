@@ -159,7 +159,7 @@ export const useService = () => {
     try {
       const newSheet = {
         title: 'New Sheet',
-        content: 'Sample Content \n \n.',
+        content: '',
         positionInSpace: {
           x: -currentSpace.view_state.x + window.innerWidth / 2 / currentSpace.view_state.scale - 160,
           y: -currentSpace.view_state.y + window.innerHeight / 2 / currentSpace.view_state.scale - 100,
