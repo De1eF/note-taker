@@ -18,6 +18,7 @@ class SheetModel(BaseModel):
     positionInSpace: Position
     width: float = 320.0 
     color: str = 'default' 
+    collapsed: bool = False
     is_deleted: bool = False
 
 class UpdateSheetModel(BaseModel):
@@ -27,6 +28,7 @@ class UpdateSheetModel(BaseModel):
     positionInSpace: Optional[Position] = None
     width: Optional[float] = None
     color: Optional[str] = None 
+    collapsed: Optional[bool] = None
     is_deleted: Optional[bool] = None
 
 # --- NEW: SPACE MODELS ---

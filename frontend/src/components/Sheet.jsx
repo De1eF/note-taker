@@ -18,7 +18,7 @@ export default function Sheet({
   setHoveredTag
 }) {
   const [localContent, setLocalContent] = useState(data.content || "");
-  const [collapsed, setCollapsed] = useState(data.collapsed || false);
+  const [collapsed, setCollapsed] = useState(() => (data && typeof data.collapsed !== 'undefined') ? data.collapsed : false);
   const [width, setWidth] = useState(data.width || 320);
   const [isResizing, setIsResizing] = useState(false);
   const [isHandleActive, setIsHandleActive] = useState(false);
@@ -30,7 +30,12 @@ export default function Sheet({
 
   useEffect(() => { setLocalContent(data.content || ""); }, [data.content]);
   useEffect(() => { if (data.width) setWidth(data.width); }, [data.width]);
-  useEffect(() => { setCollapsed(data.collapsed || false); }, [data.collapsed]);
+  useEffect(() => {
+    // Load collapsed state from DB when the sheet data (id) changes —
+    // initialize local state from the server value without overwriting
+    // transient local toggles while editing.
+    setCollapsed(typeof data?.collapsed !== 'undefined' ? data.collapsed : false);
+  }, [data._id]);
   
 
   const tags = useMemo(() => extractTags(localContent), [localContent]);
