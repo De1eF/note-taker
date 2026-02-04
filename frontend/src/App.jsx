@@ -94,7 +94,8 @@ useEffect(() => {
 
   // --- MOUSE HANDLERS ---
   const handleWheel = (e) => {
-    if (e.ctrlKey) e.preventDefault();
+    // Prevent default browser scrolling/zooming so the canvas handles it exclusively
+    e.preventDefault();
     const scaleAmount = -e.deltaY * 0.001;
     const newScale = Math.min(Math.max(view.scale * (1 + scaleAmount), 0.1), 5);
     
@@ -209,12 +210,14 @@ const handlePointerUp = (e) => {
             backgroundImage: mode === 'light' ? 'radial-gradient(#ccc 1px, transparent 1px)' : 'radial-gradient(#444 1px, transparent 1px)',
             backgroundSize: `${20 * view.scale}px ${20 * view.scale}px`,
             backgroundPosition: `${view.x}px ${view.y}px`,
+            touchAction: 'none',
         }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         onWheel={handleWheel}
+        onTouchMove={(e) => e.preventDefault()}
         ref={containerRef}
       >
         <Fab color="primary" sx={{ position: 'fixed', top: 20, left: 20, zIndex: 1000 }} onClick={handleCreate}>
