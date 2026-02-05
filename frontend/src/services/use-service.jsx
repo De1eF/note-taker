@@ -143,6 +143,19 @@ export const useService = () => {
     }
   };
 
+  const renameSpace = async (id, name) => {
+    const trimmed = name?.trim();
+    if (!trimmed) return;
+    setSpaces((prev) => prev.map((s) => (s._id === id ? { ...s, name: trimmed } : s)));
+    setCurrentSpace((prev) => (prev && prev._id === id ? { ...prev, name: trimmed } : prev));
+    try {
+      await api.put(`/spaces/${id}`, { name: trimmed });
+    } catch (e) {
+      console.error(e);
+      fetchSpaces();
+    }
+  };
+
   const switchSpace = (space) => setCurrentSpace(space);
 
   const fetchSheetsForSpace = async (id) => {
@@ -297,6 +310,7 @@ export const useService = () => {
     createSpace,
     switchSpace,
     deleteSpace,
+    renameSpace,
     sheets,
     handleCreate,
     handleCreateHelpSheet,

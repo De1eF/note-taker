@@ -20,7 +20,7 @@ function MainCanvas({ service }) {
   const {
     // Data & Actions from service
     theme, toggleColorMode, mode,
-    spaces, currentSpace, createSpace, switchSpace, deleteSpace,
+    spaces, currentSpace, createSpace, switchSpace, deleteSpace, renameSpace,
     sheets, handleCreate, handleCreateHelpSheet, handleUpdate, handleDelete, handleDuplicate, handleDrag,
     handleViewChange, user, handleLogout
   } = service;
@@ -257,6 +257,7 @@ const handlePointerUp = (e) => {
             onSwitch={switchSpace}
             onCreate={createSpace}
             onDelete={deleteSpace}
+            onRename={renameSpace}
         />
 
         <UserProfile user={user} onLogout={handleLogout} />
