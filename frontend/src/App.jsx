@@ -21,7 +21,7 @@ function MainCanvas({ service }) {
     // Data & Actions from service
     theme, toggleColorMode, mode,
     spaces, currentSpace, createSpace, switchSpace, deleteSpace,
-    sheets, handleCreate, handleUpdate, handleDelete, handleDuplicate, handleDrag,
+    sheets, handleCreate, handleCreateHelpSheet, handleUpdate, handleDelete, handleDuplicate, handleDrag,
     handleViewChange, user, handleLogout
   } = service;
 
@@ -277,6 +277,7 @@ const handlePointerUp = (e) => {
             onUpdate={handleUpdate}
             onDuplicate={handleDuplicate}
             onDelete={handleDelete}
+            onCreateHelp={handleCreateHelpSheet}
             onDrag={handleDrag}
             sx={{
               touchAction: 'none',

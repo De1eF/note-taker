@@ -8,6 +8,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import UnfoldLessIcon from '@mui/icons-material/UnfoldLess';
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
 import FormatColorFillIcon from '@mui/icons-material/FormatColorFill';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
 const COLORS = [
   { name: 'Default', value: 'default' },
@@ -21,7 +22,7 @@ const COLORS = [
 
 export default function SheetHeader({ 
   title, width, collapsed, setCollapsed, color, 
-  onTitleChange, onColorChange, onDuplicate, onDelete 
+  onTitleChange, onColorChange, onDuplicate, onDelete, onCreateHelp
 }) {
   const theme = useTheme(); // Hook to access theme
   const [anchorEl, setAnchorEl] = useState(null);
@@ -61,22 +62,37 @@ export default function SheetHeader({
           sx={{
             position: 'absolute',
             left: '50%',
-            top: 6,
+            top: 2,
             transform: 'translateX(-50%)',
-            width: 44,
-            height: 10,
-            borderRadius: 6,
-            bgcolor: 'rgba(0,0,0,0.18)',
+            width: 120,
+            height: 28,
+            borderRadius: 12,
+            bgcolor: 'transparent',
             cursor: 'grab',
             transition: 'background-color 120ms, box-shadow 120ms',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            '&::after': {
+              content: '""',
+              width: 44,
+              height: 10,
+              borderRadius: 6,
+              bgcolor: 'rgba(0,0,0,0.18)',
+              transition: 'background-color 120ms, box-shadow 120ms',
+            },
             '&:hover': {
-              bgcolor: 'rgba(0,0,0,0.28)',
-              boxShadow: '0 0 0 2px rgba(255,255,255,0.25)'
+              '&::after': {
+                bgcolor: 'rgba(0,0,0,0.28)',
+                boxShadow: '0 0 0 2px rgba(255,255,255,0.25)'
+              }
             },
             '&:active': {
               cursor: 'grabbing',
-              bgcolor: 'rgba(0,0,0,0.35)',
-              boxShadow: '0 0 0 3px rgba(255,255,255,0.35)'
+              '&::after': {
+                bgcolor: 'rgba(0,0,0,0.35)',
+                boxShadow: '0 0 0 3px rgba(255,255,255,0.35)'
+              }
             }
           }}
         />
@@ -108,6 +124,25 @@ export default function SheetHeader({
       </Box>
 
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose} onClick={(e) => e.stopPropagation()} MenuListProps={{ sx: { py: 0.5 } }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1.5, pt: 1, pb: 0.5 }}>
+          <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase' }}>
+            Sheet actions
+          </Typography>
+          <IconButton
+            size="small"
+            onClick={() => {
+              onCreateHelp?.();
+              handleMenuClose();
+            }}
+            title="Help"
+            sx={{ gap: 0.5 }}
+          >
+            <HelpOutlineIcon fontSize="small" />
+            <Typography variant="caption" sx={{ fontWeight: 600 }}>
+              Help
+            </Typography>
+          </IconButton>
+        </Box>
         <Box sx={{ px: 2, py: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: 'bold' }}>
                 <FormatColorFillIcon sx={{ fontSize: 16, mr: 1 }} /> Color

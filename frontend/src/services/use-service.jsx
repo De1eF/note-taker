@@ -177,6 +177,48 @@ export const useService = () => {
     }
   };
 
+  const handleCreateHelpSheet = async () => {
+    if (!currentSpace) return;
+    try {
+      const helpContent = [
+        '# Styled Lines Help',
+        '',
+        '## Headers',
+        'Use # Header1, ## Header2, ### Header3',
+        '',
+        '## Tags',
+        'Use ~tag or ~tag:value inside any line',
+        '',
+        '## Links',
+        'Type Example[http://example.com]',
+        '',
+        '## Bullet Lists',
+        '- item',
+        '-- nested item',
+        '',
+        'Tip: Use Tab to indent and Shift+Tab to outdent bullets.',
+      ].join('\n');
+
+      const newSheet = {
+        title: 'Styled Lines Help',
+        content: helpContent,
+        positionInSpace: {
+          x: -currentSpace.view_state.x + window.innerWidth / 2 / currentSpace.view_state.scale - 160,
+          y: -currentSpace.view_state.y + window.innerHeight / 2 / currentSpace.view_state.scale - 100,
+        },
+        width: 360,
+      };
+      const res = await api.post('/sheets', newSheet);
+      const newIds = [...(currentSpace.sheet_ids || []), res.data._id];
+      await api.put(`/spaces/${currentSpace._id}`, { sheet_ids: newIds });
+
+      setSheets((prev) => [...prev, res.data]);
+      setCurrentSpace((prev) => ({ ...prev, sheet_ids: newIds }));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handleUpdate = async (id, data) => {
     setSheets((prev) => prev.map((s) => (s._id === id ? { ...s, ...data } : s)));
     api.put(`/sheets/${id}`, data).catch(console.error);
@@ -257,6 +299,7 @@ export const useService = () => {
     deleteSpace,
     sheets,
     handleCreate,
+    handleCreateHelpSheet,
     handleUpdate,
     handleDelete,
     handleDuplicate,

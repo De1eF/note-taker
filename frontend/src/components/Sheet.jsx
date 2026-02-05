@@ -14,6 +14,7 @@ export default function Sheet({
   onUpdate,
   onDuplicate,
   onDelete,
+  onCreateHelp,
   onDrag,
   scale,
   setHoveredTag
@@ -329,6 +330,7 @@ export default function Sheet({
             onColorChange={(c) => onUpdate(data._id, { color: c })}
             onDuplicate={() => onDuplicate(data._id)}
             onDelete={() => onDelete(data._id)}
+            onCreateHelp={onCreateHelp}
           />
 
           {!collapsed && (
