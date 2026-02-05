@@ -19,6 +19,7 @@ class SheetModel(BaseModel):
     width: float = 320.0 
     color: str = 'default' 
     collapsed: bool = False
+    collapsed_headers: List[str] = []
     is_deleted: bool = False
 
 class UpdateSheetModel(BaseModel):
@@ -29,6 +30,7 @@ class UpdateSheetModel(BaseModel):
     width: Optional[float] = None
     color: Optional[str] = None 
     collapsed: Optional[bool] = None
+    collapsed_headers: Optional[List[str]] = None
     is_deleted: Optional[bool] = None
 
 # --- NEW: SPACE MODELS ---

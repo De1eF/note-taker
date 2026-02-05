@@ -1,7 +1,14 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useTheme } from '@mui/material/styles';
 
-function EditableBlock({ initialText = '', onChange, sheetColor }) {
+function EditableBlock({
+  initialText = '',
+  onChange,
+  sheetColor,
+  collapsedHeaders = [],
+  onCollapsedHeadersChange,
+  collapseIdPrefix = ''
+}) {
   const theme = useTheme();
   const [lines, setLines] = useState(() => initialText.split('\n'));
   const [editingIndex, setEditingIndex] = useState(null);
@@ -144,9 +151,72 @@ function EditableBlock({ initialText = '', onChange, sheetColor }) {
     }
   };
 
+  const headerMeta = useMemo(() => {
+    return lines.map((line, i) => {
+      const match = line.match(/^(#{1,6})\s*(.*)$/);
+      if (!match) return null;
+      const level = match[1].length;
+      const content = match[2];
+      const id = `${collapseIdPrefix}h:${i}:${level}`;
+      return { level, content, id };
+    });
+  }, [lines, collapseIdPrefix]);
+
+  const headerIds = useMemo(() => {
+    const ids = new Set();
+    headerMeta.forEach((h) => {
+      if (h) ids.add(h.id);
+    });
+    return ids;
+  }, [headerMeta]);
+
+  useEffect(() => {
+    if (!onCollapsedHeadersChange) return;
+    if (!collapsedHeaders || collapsedHeaders.length === 0) return;
+    const filtered = collapsedHeaders.filter((id) => headerIds.has(id));
+    if (filtered.length !== collapsedHeaders.length) {
+      onCollapsedHeadersChange(filtered);
+    }
+  }, [collapsedHeaders, headerIds, onCollapsedHeadersChange]);
+
+  const hiddenLineIndexes = useMemo(() => {
+    const hidden = new Set();
+    const collapsedSet = new Set(collapsedHeaders || []);
+    let active = null; // { level, index }
+    for (let i = 0; i < lines.length; i += 1) {
+      const header = headerMeta[i];
+      if (header) {
+        if (active && header.level <= active.level) {
+          active = null;
+        }
+        if (active) {
+          hidden.add(i);
+          continue;
+        }
+        if (collapsedSet.has(header.id)) {
+          active = { level: header.level, index: i };
+        }
+        continue;
+      }
+      if (active) hidden.add(i);
+    }
+    return hidden;
+  }, [lines.length, headerMeta, collapsedHeaders]);
+
+  const toggleHeaderCollapse = (headerId) => {
+    if (!onCollapsedHeadersChange) return;
+    const set = new Set(collapsedHeaders || []);
+    if (set.has(headerId)) set.delete(headerId);
+    else set.add(headerId);
+    onCollapsedHeadersChange(Array.from(set));
+  };
+
   return (
     <div className="editable-block">
-      {lines.map((line, i) =>
+      {lines.map((line, i) => {
+        if (hiddenLineIndexes.has(i)) return null;
+        const header = headerMeta[i];
+        return (
         editingIndex === i ? (
           <textarea
             key={i}
@@ -188,6 +258,88 @@ function EditableBlock({ initialText = '', onChange, sheetColor }) {
             }}
           >
             {line ? (() => {
+              if (header) {
+                const level = header.level;
+                const content = header.content;
+                const sizeByLevel = {
+                  1: '1.6em',
+                  2: '1.4em',
+                  3: '1.25em',
+                  4: '1.1em',
+                  5: '1.0em',
+                  6: '0.95em',
+                };
+                const isCollapsed = (collapsedHeaders || []).includes(header.id);
+                return (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      fontWeight: 700,
+                      fontSize: sizeByLevel[level] || '1.1em',
+                      lineHeight: '1.25',
+                      margin: '4px 0',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleHeaderCollapse(header.id);
+                      }}
+                      title={isCollapsed ? 'Expand section' : 'Collapse section'}
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: 4,
+                        border: theme?.palette?.mode === 'dark'
+                          ? '1px solid rgba(255,255,255,0.5)'
+                          : '1px solid rgba(0,0,0,0.2)',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        fontSize: 12,
+                        lineHeight: '16px',
+                        padding: 0,
+                        color: theme?.palette?.mode === 'dark'
+                          ? '#ffffff'
+                          : (theme?.palette?.text?.primary || 'inherit'),
+                      }}
+                    >
+                      {isCollapsed ? '+' : '-'}
+                    </button>
+                    <div>
+                      {content.split(/(~[A-Za-z0-9_-]+)/g).map((part, idx) => {
+                        if (!part) return null;
+                        if (part.startsWith('~')) {
+                          const tagText = part.slice(1);
+                          const bg = (!sheetColor || sheetColor === 'default') ? theme?.palette?.action?.selected : sheetColor;
+                          const fg = (!sheetColor || sheetColor === 'default') ? theme?.palette?.text?.primary : '#000000';
+                          return (
+                            <span
+                              key={idx}
+                              style={{
+                                display: 'inline-block',
+                                background: bg,
+                                color: fg,
+                                borderRadius: 4,
+                                padding: '2px 6px',
+                                marginRight: 6,
+                                fontWeight: 600,
+                                fontSize: '0.85em',
+                              }}
+                            >
+                              {tagText}
+                            </span>
+                          );
+                        }
+                        return part;
+                      })}
+                    </div>
+                  </div>
+                );
+              }
+
               // Bullet list detection: lines starting with one or more dashes and a space, e.g. "- item" or "-- nested"
               const bulletMatch = line.match(/^(-+)\s+(.*)$/);
               if (bulletMatch) {
@@ -264,7 +416,8 @@ function EditableBlock({ initialText = '', onChange, sheetColor }) {
             )}
           </div>
         )
-      )}
+      );
+      })}
     </div>
   );
 }

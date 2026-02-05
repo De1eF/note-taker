@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import Draggable from 'react-draggable';
 import { Card, CardContent, Typography, Box, Tooltip } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 
 import SheetHeader from './sheet-parts/SheetHeader';
 import EditableBlock from './sheet-parts/EditableBlock';
@@ -17,8 +18,10 @@ export default function Sheet({
   scale,
   setHoveredTag
 }) {
+  const theme = useTheme();
   const [localContent, setLocalContent] = useState(data.content || "");
   const [collapsed, setCollapsed] = useState(() => (data && typeof data.collapsed !== 'undefined') ? data.collapsed : false);
+  const [collapsedHeaders, setCollapsedHeaders] = useState(() => (data && Array.isArray(data.collapsed_headers)) ? data.collapsed_headers : []);
   const [width, setWidth] = useState(data.width || 320);
   const [isResizing, setIsResizing] = useState(false);
   const [isHandleActive, setIsHandleActive] = useState(false);
@@ -35,11 +38,32 @@ export default function Sheet({
     // initialize local state from the server value without overwriting
     // transient local toggles while editing.
     setCollapsed(typeof data?.collapsed !== 'undefined' ? data.collapsed : false);
+    setCollapsedHeaders(Array.isArray(data?.collapsed_headers) ? data.collapsed_headers : []);
   }, [data._id]);
   
 
   const tags = useMemo(() => extractTags(localContent), [localContent]);
   const blocks = useMemo(() => parseMarkdownBlocks(localContent), [localContent]);
+
+  const headerIdsInBlocks = useMemo(() => {
+    const ids = new Set();
+    blocks.forEach((block, i) => {
+      if (block.type === 'section') ids.add(`section:${i}:${block.level}`);
+    });
+    return ids;
+  }, [blocks]);
+
+  useEffect(() => {
+    if (!collapsedHeaders || collapsedHeaders.length === 0) return;
+    const filtered = collapsedHeaders.filter((id) => {
+      if (id.startsWith('section:')) return headerIdsInBlocks.has(id);
+      return true;
+    });
+    if (filtered.length !== collapsedHeaders.length) {
+      setCollapsedHeaders(filtered);
+      onUpdate(data._id, { collapsed_headers: filtered });
+    }
+  }, [collapsedHeaders, headerIdsInBlocks, data._id, onUpdate]);
 
   const widthRef = useRef(width);
   useEffect(() => { widthRef.current = width; }, [width]);
@@ -49,6 +73,40 @@ export default function Sheet({
     setCollapsed(newState);
     onUpdate(data._id, { collapsed: newState });
   };
+
+  const handleHeaderCollapseToggle = (headerId) => {
+    const set = new Set(collapsedHeaders || []);
+    if (set.has(headerId)) set.delete(headerId);
+    else set.add(headerId);
+    const next = Array.from(set);
+    setCollapsedHeaders(next);
+    onUpdate(data._id, { collapsed_headers: next });
+  };
+
+  const hiddenBlockIndexes = useMemo(() => {
+    const hidden = new Set();
+    if (!blocks || blocks.length === 0) return hidden;
+    const collapsedSet = new Set(collapsedHeaders || []);
+    let active = null; // { level, index }
+    blocks.forEach((block, i) => {
+      if (block.type === 'section') {
+        if (active && block.level <= active.level) {
+          active = null;
+        }
+        if (active) {
+          hidden.add(i);
+          return;
+        }
+        const id = `section:${i}:${block.level}`;
+        if (collapsedSet.has(id)) {
+          active = { level: block.level, index: i };
+        }
+        return;
+      }
+      if (active) hidden.add(i);
+    });
+    return hidden;
+  }, [blocks, collapsedHeaders]);
 
   const handleBlockUpdate = (index, newBodyText) => {
     if (!blocks.length) {
@@ -289,18 +347,50 @@ export default function Sheet({
               )}
               {blocks.map((block, i) => {
                 const isHeader = block.type === 'section';
+                const headerId = isHeader ? `section:${i}:${block.level}` : null;
+                const isHidden = hiddenBlockIndexes.has(i);
+
+                if (isHidden) return null;
 
                 return (
                   <div key={i} style={{ marginBottom: 8 }}>
                     {isHeader && (
-                      <div
-                        onDoubleClick={() => {
-                          const t = window.prompt('Section title', block.title || '');
-                          if (t !== null) handleTitleUpdate(i, t);
-                        }}
-                        style={{ fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
-                      >
-                        {block.title}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleHeaderCollapseToggle(headerId);
+                          }}
+                          title={collapsedHeaders?.includes(headerId) ? 'Expand section' : 'Collapse section'}
+                          style={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: 4,
+                            border: theme?.palette?.mode === 'dark'
+                              ? '1px solid rgba(255,255,255,0.5)'
+                              : '1px solid rgba(0,0,0,0.2)',
+                            background: 'transparent',
+                            cursor: 'pointer',
+                            fontSize: 12,
+                            lineHeight: '16px',
+                            padding: 0,
+                            color: theme?.palette?.mode === 'dark'
+                              ? '#ffffff'
+                              : (theme?.palette?.text?.primary || 'inherit'),
+                          }}
+                        >
+                          {collapsedHeaders?.includes(headerId) ? '+' : '-'}
+                        </button>
+                        <div
+                          onDoubleClick={() => {
+                            const t = window.prompt('Section title', block.title || '');
+                            if (t !== null) handleTitleUpdate(i, t);
+                          }}
+                          style={{ fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+                        >
+                          {block.title}
+                        </div>
                       </div>
                     )}
 
@@ -308,6 +398,12 @@ export default function Sheet({
                       <EditableBlock
                         initialText={block.content || ''}
                         sheetColor={data.color}
+                        collapsedHeaders={collapsedHeaders}
+                        collapseIdPrefix={`block:${i}:`}
+                        onCollapsedHeadersChange={(next) => {
+                          setCollapsedHeaders(next);
+                          onUpdate(data._id, { collapsed_headers: next });
+                        }}
                         onChange={(text) => handleBlockUpdate(i, text)}
                       />
                     )}
@@ -316,6 +412,12 @@ export default function Sheet({
                       <EditableBlock
                         initialText={block.body || ''}
                         sheetColor={data.color}
+                        collapsedHeaders={collapsedHeaders}
+                        collapseIdPrefix={`block:${i}:`}
+                        onCollapsedHeadersChange={(next) => {
+                          setCollapsedHeaders(next);
+                          onUpdate(data._id, { collapsed_headers: next });
+                        }}
                         onChange={(text) => handleBlockUpdate(i, text)}
                       />
                     )}
