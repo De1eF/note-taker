@@ -1,7 +1,6 @@
 import React from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { Box, Paper, Typography } from '@mui/material';
-import LockIcon from '@mui/icons-material/Lock';
 
 export default function LoginScreen({ onSuccess }) {
   return (
@@ -12,10 +11,22 @@ export default function LoginScreen({ onSuccess }) {
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'center', 
-        bgcolor: 'background.default',
-        color: 'text.primary'
+        color: 'text.primary',
+        backgroundImage: 'radial-gradient(1200px 800px at 10% 10%, rgba(14, 74, 124, 0.55), transparent 60%), linear-gradient(135deg, #08192B 0%, #0B3B4F 45%, #0B5E58 100%)',
+        backgroundAttachment: 'fixed',
+        position: 'relative',
+        overflow: 'hidden'
       }}
     >
+      <Box
+        aria-hidden
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: 'radial-gradient(600px 300px at 80% 20%, rgba(59, 247, 191, 0.15), transparent 70%)',
+          pointerEvents: 'none'
+        }}
+      />
       <Paper 
         elevation={6}
         sx={{ 
@@ -25,14 +36,37 @@ export default function LoginScreen({ onSuccess }) {
           alignItems: 'center', 
           borderRadius: 4,
           textAlign: 'center',
-          maxWidth: 400
+          maxWidth: 460,
+          width: '90vw',
+          backdropFilter: 'blur(8px)',
+          backgroundColor: 'rgba(255, 255, 255, 0.92)'
         }}
       >
-        <Typography variant="h4" fontWeight="bold" gutterBottom>
+        <Box
+          aria-hidden
+          sx={{
+            width: 96,
+            height: 96,
+            borderRadius: '50%',
+            background: 'linear-gradient(145deg, rgba(8, 25, 43, 0.9), rgba(11, 94, 88, 0.9))',
+            boxShadow: '0 8px 22px rgba(0, 0, 0, 0.25)',
+            border: '2px solid rgba(255, 255, 255, 0.4)',
+            display: 'grid',
+            placeItems: 'center',
+            color: 'rgba(255, 255, 255, 0.85)',
+            fontSize: 28,
+            fontWeight: 700,
+            letterSpacing: 1,
+            mb: 3
+          }}
+        >
+          W
+        </Box>
+        <Typography variant="h4" fontWeight="bold" gutterBottom sx={{ color: '#0b0b0b' }}>
           Webington
         </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          Sign in to access your personal spaces and sheets.
+        <Typography variant="body1" sx={{ mb: 4, color: '#0b0b0b' }}>
+          Welcome to Webington, your interconnected notes platform. Organize your ideas, link them with tags, and enjoy the feel of paper notes—simpler, faster, and securely synced in the cloud.
         </Typography>
 
         <GoogleLogin
