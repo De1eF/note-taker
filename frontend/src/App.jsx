@@ -26,6 +26,8 @@ function MainCanvas({ service }) {
   } = service;
 
   // --- CANVAS LOCAL STATE ---
+  const hasSpaces = Array.isArray(spaces) && spaces.length > 0;
+  const canCreateSheet = !!currentSpace && hasSpaces;
   const [view, setView] = useState({ x: 0, y: 0, scale: 1 });
   const [isPanning, setIsPanning] = useState(false);
   const pointers = useRef(new Map());
@@ -123,7 +125,9 @@ useEffect(() => {
   };
 
   const handlePointerDown = (e) => {
-if (e.target.closest('button') || e.target.closest('.MuiInputBase-root')) return;
+  // Ignore events coming from portals (e.g., MUI Menu/Popover) or UI controls.
+  if (!containerRef.current?.contains(e.target)) return;
+  if (e.target.closest('button') || e.target.closest('.MuiInputBase-root')) return;
 
   pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
@@ -230,7 +234,12 @@ const handlePointerUp = (e) => {
         {/* Attach a non-passive touchmove listener so calling preventDefault() is allowed */}
         {/* This avoids the browser warning about passive event listeners. */}
         
-        <Fab color="primary" sx={{ position: 'fixed', top: 20, left: 20, zIndex: 1000 }} onClick={handleCreate}>
+        <Fab
+          color="primary"
+          sx={{ position: 'fixed', top: 20, left: 20, zIndex: 1000 }}
+          onClick={handleCreate}
+          disabled={!canCreateSheet}
+        >
           <AddIcon />
         </Fab>
 

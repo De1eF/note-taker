@@ -10,6 +10,8 @@ import CheckIcon from '@mui/icons-material/Check';
 export default function SpaceManager({ spaces, currentSpace, onSwitch, onCreate, onDelete }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
+  const spacesLoaded = Array.isArray(spaces);
+  const hasSpaces = spacesLoaded && spaces.length > 0;
 
   const handleClick = (event) => setAnchorEl(event.currentTarget);
   const handleClose = () => setAnchorEl(null);
@@ -37,7 +39,7 @@ export default function SpaceManager({ spaces, currentSpace, onSwitch, onCreate,
           '&:hover': { bgcolor: 'background.paper', opacity: 0.9 }
         }}
       >
-        {currentSpace ? currentSpace.name : "Loading..."}
+        {currentSpace ? currentSpace.name : (spacesLoaded && !hasSpaces ? "Create a space" : "Loading...")}
       </Button>
 
       <Menu
