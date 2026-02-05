@@ -239,6 +239,8 @@ function EditableBlock({
               caretColor: theme?.palette?.text?.primary || undefined,
               padding: 0,
               margin: 0,
+              outline: 'none',
+              border: 'none',
             }}
           />
         ) : (
