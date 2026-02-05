@@ -25,14 +25,13 @@ export default function SheetHeader({
 }) {
   const theme = useTheme(); // Hook to access theme
   const [anchorEl, setAnchorEl] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
   const [localTitle, setLocalTitle] = useState(title);
 
   useEffect(() => { setLocalTitle(title); }, [title]);
 
   const handleMenuOpen = (e) => { e.stopPropagation(); setAnchorEl(e.currentTarget); };
   const handleMenuClose = () => setAnchorEl(null);
-  const handleTitleBlur = () => { setIsEditing(false); if (localTitle !== title) onTitleChange(localTitle); };
+  const handleTitleBlur = () => { if (localTitle !== title) onTitleChange(localTitle); };
   const handleTitleKeyDown = (e) => { if (e.key === 'Enter') handleTitleBlur(); };
 
   // --- STYLE LOGIC ---
@@ -46,41 +45,57 @@ export default function SheetHeader({
   return (
     <>
       <Box 
-        className="drag-handle"
         sx={{ 
           p: 1, 
           bgcolor: headerBg, 
           color: headerText,
-          cursor: 'move', 
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           borderBottom: '1px solid rgba(0,0,0,0.1)', flexShrink: 0,
-          transition: 'background-color 0.3s'
+          transition: 'background-color 0.3s',
+          position: 'relative'
         }}
       >
-        {isEditing ? (
-            <TextField 
-                value={localTitle} onChange={(e) => setLocalTitle(e.target.value)}
-                onBlur={handleTitleBlur} onKeyDown={handleTitleKeyDown}
-                autoFocus variant="standard" size="small" fullWidth
-                onMouseDown={(e) => e.stopPropagation()} 
-                InputProps={{ 
-                    disableUnderline: true,
-                    style: { 
-                        color: headerText, 
-                        fontSize: '0.875rem', 
-                        fontWeight: 600 
-                    } 
-                }}
-            />
-        ) : (
-            <Typography 
-                variant="subtitle2" noWrap sx={{ maxWidth: width - 80, cursor: 'text', fontWeight: 600 }}
-                onDoubleClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
-                title="Double-click to rename"
-            >
-                {title}
-            </Typography>
-        )}
+        <Box
+          className="drag-handle"
+          aria-label="Drag sheet"
+          sx={{
+            position: 'absolute',
+            left: '50%',
+            top: 6,
+            transform: 'translateX(-50%)',
+            width: 44,
+            height: 10,
+            borderRadius: 6,
+            bgcolor: 'rgba(0,0,0,0.18)',
+            cursor: 'grab',
+            transition: 'background-color 120ms, box-shadow 120ms',
+            '&:hover': {
+              bgcolor: 'rgba(0,0,0,0.28)',
+              boxShadow: '0 0 0 2px rgba(255,255,255,0.25)'
+            },
+            '&:active': {
+              cursor: 'grabbing',
+              bgcolor: 'rgba(0,0,0,0.35)',
+              boxShadow: '0 0 0 3px rgba(255,255,255,0.35)'
+            }
+          }}
+        />
+        <TextField 
+            value={localTitle} onChange={(e) => setLocalTitle(e.target.value)}
+            onBlur={handleTitleBlur} onKeyDown={handleTitleKeyDown}
+            variant="standard" size="small" fullWidth
+            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="no-drag"
+            InputProps={{ 
+                disableUnderline: true,
+                style: { 
+                    color: headerText, 
+                    fontSize: '0.875rem', 
+                    fontWeight: 600 
+                } 
+            }}
+        />
         
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <IconButton size="small" onClick={(e) => { e.stopPropagation(); setCollapsed(!collapsed); }} sx={{ color: headerText, p: 0.5 }}>

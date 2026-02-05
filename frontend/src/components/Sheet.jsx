@@ -162,6 +162,7 @@ export default function Sheet({
     <Draggable
       nodeRef={nodeRef}
       handle=".drag-handle"
+      cancel=".no-drag, input, textarea, button, [contenteditable='true'], .MuiInputBase-root"
       defaultPosition={data.positionInSpace}
       onStop={(e, ui) => onDrag(data._id, { x: ui.x, y: ui.y })}
       scale={scale}
