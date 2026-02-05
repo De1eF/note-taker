@@ -211,6 +211,83 @@ function EditableBlock({
     onCollapsedHeadersChange(Array.from(set));
   };
 
+  const linkColor = (!sheetColor || sheetColor === 'default')
+    ? '#1976d2'
+    : sheetColor;
+
+  const renderWithTags = (text, keyPrefix) => {
+    if (!text) return null;
+    return text.split(/(~[A-Za-z0-9_-]+)/g).map((chunk, idx) => {
+      if (!chunk) return null;
+      if (chunk.startsWith('~')) {
+        const tagText = chunk.slice(1);
+        const bg = (!sheetColor || sheetColor === 'default') ? theme?.palette?.action?.selected : sheetColor;
+        const fg = (!sheetColor || sheetColor === 'default') ? theme?.palette?.text?.primary : '#000000';
+        return (
+          <span
+            key={`${keyPrefix}-tag-${idx}`}
+            style={{
+              display: 'inline-block',
+              background: bg,
+              color: fg,
+              borderRadius: 4,
+              padding: '2px 6px',
+              marginRight: 6,
+              fontWeight: 600,
+              fontSize: '0.85em',
+            }}
+          >
+            {tagText}
+          </span>
+        );
+      }
+      return chunk;
+    });
+  };
+
+  const renderInline = (text) => {
+    if (!text) return null;
+    const linkRegex = /([^\[]+)\[(https?:\/\/[^\]\s]+)\]/g;
+    const out = [];
+    let lastIndex = 0;
+    let match;
+    let linkIndex = 0;
+
+    while ((match = linkRegex.exec(text)) !== null) {
+      const [full, label, url] = match;
+      const start = match.index;
+
+      if (start > lastIndex) {
+        const before = text.slice(lastIndex, start);
+        const rendered = renderWithTags(before, `t-${linkIndex}`);
+        if (rendered) out.push(...rendered);
+      }
+
+      out.push(
+        <a
+          key={`link-${linkIndex}`}
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          style={{ color: linkColor, textDecoration: 'underline' }}
+        >
+          {renderWithTags(label, `l-${linkIndex}`)}
+        </a>
+      );
+
+      lastIndex = start + full.length;
+      linkIndex += 1;
+    }
+
+    if (lastIndex < text.length) {
+      const tail = text.slice(lastIndex);
+      const rendered = renderWithTags(tail, `t-tail`);
+      if (rendered) out.push(...rendered);
+    }
+
+    return out;
+  };
+
   return (
     <div className="editable-block">
       {lines.map((line, i) => {
@@ -311,32 +388,7 @@ function EditableBlock({
                       {isCollapsed ? '+' : '-'}
                     </button>
                     <div>
-                      {content.split(/(~[A-Za-z0-9_-]+)/g).map((part, idx) => {
-                        if (!part) return null;
-                        if (part.startsWith('~')) {
-                          const tagText = part.slice(1);
-                          const bg = (!sheetColor || sheetColor === 'default') ? theme?.palette?.action?.selected : sheetColor;
-                          const fg = (!sheetColor || sheetColor === 'default') ? theme?.palette?.text?.primary : '#000000';
-                          return (
-                            <span
-                              key={idx}
-                              style={{
-                                display: 'inline-block',
-                                background: bg,
-                                color: fg,
-                                borderRadius: 4,
-                                padding: '2px 6px',
-                                marginRight: 6,
-                                fontWeight: 600,
-                                fontSize: '0.85em',
-                              }}
-                            >
-                              {tagText}
-                            </span>
-                          );
-                        }
-                        return part;
-                      })}
+                      {renderInline(content)}
                     </div>
                   </div>
                 );
@@ -355,64 +407,14 @@ function EditableBlock({
                   <div style={{ display: 'flex', alignItems: 'flex-start', paddingLeft: indent }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: bulletColor, marginTop: 8, flex: '0 0 auto' }} />
                     <div style={{ marginLeft: 8, flex: 1 }}>
-                      {content.split(/(~[A-Za-z0-9_-]+)/g).map((part, idx) => {
-                        if (!part) return null;
-                        if (part.startsWith('~')) {
-                          const tagText = part.slice(1);
-                          const bg = (!sheetColor || sheetColor === 'default') ? theme?.palette?.action?.selected : sheetColor;
-                          const fg = (!sheetColor || sheetColor === 'default') ? theme?.palette?.text?.primary : '#000000';
-                          return (
-                            <span
-                              key={idx}
-                              style={{
-                                display: 'inline-block',
-                                background: bg,
-                                color: fg,
-                                borderRadius: 4,
-                                padding: '2px 6px',
-                                marginRight: 6,
-                                fontWeight: 600,
-                                fontSize: '0.85em',
-                              }}
-                            >
-                              {tagText}
-                            </span>
-                          );
-                        }
-                        return part;
-                      })}
+                      {renderInline(content)}
                     </div>
                   </div>
                 );
               }
 
               // Default: render inline ~tags as styled boxes
-              return line.split(/(~[A-Za-z0-9_-]+)/g).map((part, idx) => {
-                if (!part) return null;
-                if (part.startsWith('~')) {
-                  const tagText = part.slice(1);
-                  const bg = (!sheetColor || sheetColor === 'default') ? theme?.palette?.action?.selected : sheetColor;
-                  const fg = (!sheetColor || sheetColor === 'default') ? theme?.palette?.text?.primary : '#000000';
-                  return (
-                    <span
-                      key={idx}
-                      style={{
-                        display: 'inline-block',
-                        background: bg,
-                        color: fg,
-                        borderRadius: 4,
-                        padding: '2px 6px',
-                        marginRight: 6,
-                        fontWeight: 600,
-                        fontSize: '0.85em',
-                      }}
-                    >
-                      {tagText}
-                    </span>
-                  );
-                }
-                return part;
-              });
+              return renderInline(line);
             })() : (
               <span style={{ opacity: 0.35 }}>{'\u00A0'}</span>
             )}

@@ -181,10 +181,11 @@ export default function Sheet({
       };
     }, []);
 
+    const headerHeight = 48;
     const resizeHandleStyle = {
       position: 'absolute',
       right: 0,
-      top: 0,
+      top: headerHeight,
       bottom: 0,
       width: isCoarsePointer ? '24px' : '10px',
       cursor: 'ew-resize',
