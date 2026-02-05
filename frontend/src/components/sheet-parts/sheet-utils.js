@@ -5,7 +5,14 @@ export const extractTags = (text) => {
   if (!text) return [];
   // Regex matches: ~tag, ~tag:value, ~tag.name
   // It stops at spaces or punctuation that isn't : . or -
-  return text.match(/~[\w:.-]+/g) || [];
+  const matches = text.match(/~[\w:.-]+/g) || [];
+  // De-duplicate while preserving first-seen order
+  const seen = new Set();
+  return matches.filter((tag) => {
+    if (seen.has(tag)) return false;
+    seen.add(tag);
+    return true;
+  });
 };
 
 // 2. PARSE MARKDOWN BLOCKS (Used by Sheet.jsx to split content)
