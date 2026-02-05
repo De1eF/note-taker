@@ -291,10 +291,10 @@ export default function Sheet({
   <Box
     sx={{
       position: 'absolute',
-      right: '100%',      // place to the left of dot
+      left: '100%',       // place to the right of dot
       top: '50%',
       transform: 'translateY(-50%)',
-      mr: 1,
+      ml: 1,
       bgcolor: (!data.color || data.color === 'default')
         ? 'action.selected'
         : data.color,
