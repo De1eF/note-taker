@@ -24,6 +24,7 @@ export default function SheetHeader({
   title, width, collapsed, setCollapsed, color, 
   onTitleChange, onColorChange, onDuplicate, onDelete, onCreateHelp
 }) {
+  const MAX_TITLE_LENGTH = 20;
   const theme = useTheme(); // Hook to access theme
   const [anchorEl, setAnchorEl] = useState(null);
   const [localTitle, setLocalTitle] = useState(title);
@@ -32,8 +33,12 @@ export default function SheetHeader({
 
   const handleMenuOpen = (e) => { e.stopPropagation(); setAnchorEl(e.currentTarget); };
   const handleMenuClose = () => setAnchorEl(null);
-  const handleTitleBlur = () => { if (localTitle !== title) onTitleChange(localTitle); };
-  const handleTitleKeyDown = (e) => { if (e.key === 'Enter') handleTitleBlur(); };
+  const commitTitle = () => {
+    const trimmed = (localTitle || '').trim().slice(0, MAX_TITLE_LENGTH);
+    if (trimmed !== title) onTitleChange(trimmed);
+  };
+  const handleTitleBlur = () => commitTitle();
+  const handleTitleKeyDown = (e) => { if (e.key === 'Enter') commitTitle(); };
 
   // --- STYLE LOGIC ---
   const isDefault = !color || color === 'default';
@@ -42,6 +47,8 @@ export default function SheetHeader({
   const headerBg = isDefault ? 'primary.main' : color;
   
   const headerText = (isDefault && !isDarkMode) ? 'white' : '#000000';
+  const titleLength = (localTitle || '').length;
+  const titleFontSize = titleLength > 16 ? '0.72rem' : titleLength > 12 ? '0.78rem' : '0.875rem';
 
   return (
     <>
@@ -103,7 +110,7 @@ export default function SheetHeader({
         </Box>
         <Box sx={{ flex: '0 1 55%', minWidth: 140 }}>
           <TextField 
-              value={localTitle} onChange={(e) => setLocalTitle(e.target.value)}
+              value={localTitle} onChange={(e) => setLocalTitle(e.target.value.slice(0, MAX_TITLE_LENGTH))}
               onBlur={handleTitleBlur} onKeyDown={handleTitleKeyDown}
               variant="standard" size="small" fullWidth
               onMouseDown={(e) => e.stopPropagation()}
@@ -113,10 +120,14 @@ export default function SheetHeader({
                   disableUnderline: true,
                   style: { 
                       color: headerText, 
-                      fontSize: '0.875rem', 
-                      fontWeight: 600 
+                      fontSize: titleFontSize, 
+                      fontWeight: 600,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
                   } 
               }}
+              inputProps={{ maxLength: MAX_TITLE_LENGTH }}
           />
         </Box>
         

@@ -43,24 +43,29 @@ export default function LoginScreen({ onSuccess }) {
         }}
       >
         <Box
-          aria-hidden
           sx={{
-            width: 96,
-            height: 96,
+            width: 112,
+            height: 112,
             borderRadius: '50%',
-            background: 'linear-gradient(145deg, rgba(8, 25, 43, 0.9), rgba(11, 94, 88, 0.9))',
-            boxShadow: '0 8px 22px rgba(0, 0, 0, 0.25)',
-            border: '2px solid rgba(255, 255, 255, 0.4)',
+            backgroundColor: '#2a2a2a',
             display: 'grid',
             placeItems: 'center',
-            color: 'rgba(255, 255, 255, 0.85)',
-            fontSize: 28,
-            fontWeight: 700,
-            letterSpacing: 1,
+            boxShadow: '0 10px 24px rgba(0, 0, 0, 0.22)',
+            border: '2px solid rgba(255, 255, 255, 0.6)',
             mb: 3
           }}
         >
-          W
+          <Box
+            component="img"
+            src="/Webington2.png"
+            alt="Webington"
+            sx={{
+              width: 96,
+              height: 96,
+              borderRadius: '50%',
+              objectFit: 'cover'
+            }}
+          />
         </Box>
         <Typography variant="h4" fontWeight="bold" gutterBottom sx={{ color: '#0b0b0b' }}>
           Webington
@@ -80,6 +85,21 @@ export default function LoginScreen({ onSuccess }) {
           shape="pill"
         />
       </Paper>
+      <Box
+        component="img"
+        src="/DeleF.png"
+        alt="DeleF"
+        sx={{
+          position: 'absolute',
+          right: 16,
+          bottom: 16,
+          width: 28,
+          height: 28,
+          borderRadius: '50%',
+          objectFit: 'cover',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
+        }}
+      />
     </Box>
   );
 }

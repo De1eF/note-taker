@@ -105,12 +105,24 @@ useEffect(() => {
     return () => el.removeEventListener('touchmove', onTouchMove);
   }, []);
 
+  // Disable default browser zoom (Ctrl/Cmd + wheel) while on the canvas
+  useEffect(() => {
+    const onWheel = (ev) => {
+      if (ev.ctrlKey || ev.metaKey) {
+        ev.preventDefault();
+      }
+    };
+
+    window.addEventListener('wheel', onWheel, { passive: false });
+    return () => window.removeEventListener('wheel', onWheel);
+  }, []);
+
   // --- MOUSE HANDLERS ---
   const handleWheel = (e) => {
     // Prevent default browser scrolling/zooming so the canvas handles it exclusively
     e.preventDefault();
     const scaleAmount = -e.deltaY * 0.001;
-    const newScale = Math.min(Math.max(view.scale * (1 + scaleAmount), 0.1), 5);
+    const newScale = Math.min(Math.max(view.scale * (1 + scaleAmount), 0.1), 3);
     
     // Zoom towards mouse pointer
     const rect = containerRef.current.getBoundingClientRect();
@@ -182,7 +194,7 @@ const handlePointerMove = (e) => {
     const scaleFactor = dist / pinchStartDistance.current;
     const newScale = Math.min(
       Math.max(pinchStartScale.current * scaleFactor, 0.1),
-      5
+      3
     );
 
     const rect = containerRef.current.getBoundingClientRect();

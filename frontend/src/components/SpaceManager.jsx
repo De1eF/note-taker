@@ -9,6 +9,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 
 export default function SpaceManager({ spaces, currentSpace, onSwitch, onCreate, onDelete, onRename }) {
+  const MAX_SPACE_NAME_LENGTH = 20;
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
   const spacesLoaded = Array.isArray(spaces);
@@ -28,14 +29,15 @@ export default function SpaceManager({ spaces, currentSpace, onSwitch, onCreate,
   const handleClose = () => setAnchorEl(null);
 
   const handleCreateClick = () => {
-    const name = prompt("Enter name for new space:", "New Space");
+    const raw = prompt("Enter name for new space:", "New Space");
+    const name = raw ? raw.trim().slice(0, MAX_SPACE_NAME_LENGTH) : '';
     if (name) onCreate(name);
     handleClose();
   };
 
   const commitRename = () => {
     if (!currentSpace || !onRename) return;
-    const trimmed = localName.trim();
+    const trimmed = localName.trim().slice(0, MAX_SPACE_NAME_LENGTH);
     if (!trimmed || trimmed === currentSpace.name) return;
     onRename(currentSpace._id, trimmed);
   };
@@ -60,7 +62,7 @@ export default function SpaceManager({ spaces, currentSpace, onSwitch, onCreate,
       {open ? (
         <TextField
           value={localName}
-          onChange={(e) => setLocalName(e.target.value)}
+          onChange={(e) => setLocalName(e.target.value.slice(0, MAX_SPACE_NAME_LENGTH))}
           onBlur={handleNameBlur}
           onKeyDown={handleNameKeyDown}
           autoFocus
@@ -69,6 +71,7 @@ export default function SpaceManager({ spaces, currentSpace, onSwitch, onCreate,
           InputProps={{
             startAdornment: <LayersIcon sx={{ mr: 1, color: 'text.secondary' }} />,
           }}
+          inputProps={{ maxLength: MAX_SPACE_NAME_LENGTH }}
           sx={{
             minWidth: 220,
             bgcolor: 'background.paper',
