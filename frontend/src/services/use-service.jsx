@@ -61,8 +61,31 @@ export const useService = () => {
 
   // --- THEME STATE ---
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
-  const [mode, setMode] = useState(prefersDarkMode ? 'dark' : 'light');
-  useEffect(() => setMode(prefersDarkMode ? 'dark' : 'light'), [prefersDarkMode]);
+  const getSavedThemeMode = () => {
+    if (typeof document === 'undefined') return null;
+    const match = document.cookie.match(/(?:^|;\s*)theme-mode=([^;]+)/);
+    if (!match) return null;
+    const value = decodeURIComponent(match[1]);
+    return value === 'dark' || value === 'light' ? value : null;
+  };
+
+  const [mode, setMode] = useState(() => {
+    const saved = getSavedThemeMode();
+    return saved ?? (prefersDarkMode ? 'dark' : 'light');
+  });
+
+  useEffect(() => {
+    const saved = getSavedThemeMode();
+    if (!saved) {
+      setMode(prefersDarkMode ? 'dark' : 'light');
+    }
+  }, [prefersDarkMode]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toUTCString();
+    document.cookie = `theme-mode=${encodeURIComponent(mode)}; expires=${expires}; path=/`;
+  }, [mode]);
 
   const theme = useMemo(
     () =>
