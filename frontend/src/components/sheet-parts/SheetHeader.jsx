@@ -62,10 +62,11 @@ export default function SheetHeader({
           sx={{
             position: 'absolute',
             left: '50%',
-            top: 2,
+            top: 0,
+            bottom: 0,
             transform: 'translateX(-50%)',
-            width: 120,
-            height: 28,
+            width: 140,
+            height: '100%',
             borderRadius: 12,
             bgcolor: 'transparent',
             cursor: 'grab',
@@ -73,45 +74,51 @@ export default function SheetHeader({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            '&::after': {
-              content: '""',
-              width: 44,
-              height: 10,
-              borderRadius: 6,
-              bgcolor: 'rgba(0,0,0,0.18)',
-              transition: 'background-color 120ms, box-shadow 120ms',
-            },
             '&:hover': {
-              '&::after': {
+              '& .drag-handle-pill': {
                 bgcolor: 'rgba(0,0,0,0.28)',
                 boxShadow: '0 0 0 2px rgba(255,255,255,0.25)'
               }
             },
             '&:active': {
               cursor: 'grabbing',
-              '&::after': {
+              '& .drag-handle-pill': {
                 bgcolor: 'rgba(0,0,0,0.35)',
                 boxShadow: '0 0 0 3px rgba(255,255,255,0.35)'
               }
             }
           }}
-        />
-        <TextField 
-            value={localTitle} onChange={(e) => setLocalTitle(e.target.value)}
-            onBlur={handleTitleBlur} onKeyDown={handleTitleKeyDown}
-            variant="standard" size="small" fullWidth
-            onMouseDown={(e) => e.stopPropagation()}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="no-drag"
-            InputProps={{ 
-                disableUnderline: true,
-                style: { 
-                    color: headerText, 
-                    fontSize: '0.875rem', 
-                    fontWeight: 600 
-                } 
+        >
+          <Box
+            className="drag-handle-pill"
+            sx={{
+              width: 44,
+              height: 10,
+              borderRadius: 6,
+              bgcolor: 'rgba(0,0,0,0.18)',
+              transition: 'background-color 120ms, box-shadow 120ms',
+              pointerEvents: 'none'
             }}
-        />
+          />
+        </Box>
+        <Box sx={{ flex: '0 1 55%', minWidth: 140 }}>
+          <TextField 
+              value={localTitle} onChange={(e) => setLocalTitle(e.target.value)}
+              onBlur={handleTitleBlur} onKeyDown={handleTitleKeyDown}
+              variant="standard" size="small" fullWidth
+              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="no-drag"
+              InputProps={{ 
+                  disableUnderline: true,
+                  style: { 
+                      color: headerText, 
+                      fontSize: '0.875rem', 
+                      fontWeight: 600 
+                  } 
+              }}
+          />
+        </Box>
         
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <IconButton size="small" onClick={(e) => { e.stopPropagation(); setCollapsed(!collapsed); }} sx={{ color: headerText, p: 0.5 }}>
