@@ -17,7 +17,8 @@ export default function Sheet({
   onCreateHelp,
   onDrag,
   scale,
-  setHoveredTag
+  setHoveredTag,
+  hoveredTag
 }) {
   const theme = useTheme();
   const [localContent, setLocalContent] = useState(data.content || "");
@@ -28,12 +29,22 @@ export default function Sheet({
   const [isHandleActive, setIsHandleActive] = useState(false);
   const [isHandleHover, setIsHandleHover] = useState(false);
   const [isCoarsePointer, setIsCoarsePointer] = useState(false);
+  const [activeTag, setActiveTag] = useState(null);
   
 
   const nodeRef = useRef(null);
 
   useEffect(() => { setLocalContent(data.content || ""); }, [data.content]);
   useEffect(() => { if (data.width) setWidth(data.width); }, [data.width]);
+  useEffect(() => {
+    if (!activeTag) return;
+    const handleOutside = (event) => {
+      if (event?.target?.closest?.('[data-tag-toggle]')) return;
+      setActiveTag(null);
+    };
+    document.addEventListener('pointerdown', handleOutside, true);
+    return () => document.removeEventListener('pointerdown', handleOutside, true);
+  }, [activeTag]);
   useEffect(() => {
     // Load collapsed state from DB when the sheet data (id) changes —
     // initialize local state from the server value without overwriting
@@ -240,6 +251,7 @@ export default function Sheet({
   const topPos = 60 + index * 30;
   const displayName = tag.substring(1);
   const connections = tagConnections?.[tag] || [];
+  const isTagOpen = activeTag === tag;
 
   return (
    <Box
@@ -256,6 +268,10 @@ export default function Sheet({
   {/* DOT — anchor point */}
   <Tooltip
     placement="right"
+    open={isTagOpen || hoveredTag === tag}
+    disableFocusListener
+    disableHoverListener
+    disableTouchListener
     title={
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
         <Typography variant="caption" fontWeight={600}>
@@ -284,6 +300,11 @@ export default function Sheet({
         border: '1px solid white',
         boxShadow: 1
       }}
+      data-tag-toggle
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        setActiveTag(isTagOpen ? null : tag);
+      }}
     />
   </Tooltip>
 
@@ -305,10 +326,15 @@ export default function Sheet({
       padding: '2px 6px',
       fontSize: '0.75rem',
       fontWeight: 500,
-      pointerEvents: 'none',
+      pointerEvents: 'auto',
       boxShadow: 1,
       border: '1px solid rgba(0,0,0,0.1)',
       whiteSpace: 'nowrap'
+    }}
+    data-tag-toggle
+    onPointerDown={(e) => {
+      e.stopPropagation();
+      setActiveTag(isTagOpen ? null : tag);
     }}
   >
     {displayName}
